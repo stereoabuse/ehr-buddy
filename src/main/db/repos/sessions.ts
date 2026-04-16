@@ -110,3 +110,33 @@ export function allUnpaid(): SessionWithClient[] {
     )
     .all() as SessionWithClient[]
 }
+
+/** Set the Google Calendar event ID on a session */
+export function setGoogleEventId(sessionId: string, eventId: string | null): void {
+  getDb()
+    .prepare('UPDATE sessions SET google_event_id = ? WHERE id = ?')
+    .run(eventId, sessionId)
+}
+
+/** Set the Google Doc ID on a session */
+export function setGoogleDocId(sessionId: string, docId: string | null): void {
+  getDb()
+    .prepare('UPDATE sessions SET google_doc_id = ? WHERE id = ?')
+    .run(docId, sessionId)
+}
+
+/** Get google_event_id for a session */
+export function getGoogleEventId(sessionId: string): string | null {
+  const row = getDb()
+    .prepare('SELECT google_event_id FROM sessions WHERE id = ?')
+    .get(sessionId) as { google_event_id: string | null } | undefined
+  return row?.google_event_id ?? null
+}
+
+/** Get google_doc_id for a session */
+export function getGoogleDocId(sessionId: string): string | null {
+  const row = getDb()
+    .prepare('SELECT google_doc_id FROM sessions WHERE id = ?')
+    .get(sessionId) as { google_doc_id: string | null } | undefined
+  return row?.google_doc_id ?? null
+}

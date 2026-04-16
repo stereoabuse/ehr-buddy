@@ -30,6 +30,7 @@ export default function SessionEditor() {
   const clinicianQuery = useQuery({ queryKey: ['clinician'], queryFn: () => window.api.clinician.get() })
   const clientQuery = useQuery({ queryKey: ['clients', clientId], queryFn: () => window.api.clients.get(clientId!), enabled: !!clientId })
   const sessionQuery = useQuery({ queryKey: ['sessions', sessionId], queryFn: () => window.api.sessions.get(sessionId!), enabled: !isNew })
+  const googleStatus = useQuery({ queryKey: ['google', 'status'], queryFn: () => window.api.google.authStatus() })
 
   const defaultFees = useMemo<Record<string, number>>(() => {
     return clinicianQuery.data?.default_fees_json ? JSON.parse(clinicianQuery.data.default_fees_json) : {}
@@ -48,6 +49,7 @@ export default function SessionEditor() {
     note_body: DAP_SCAFFOLDING
   })
   const [feeDollarStr, setFeeDollarStr] = useState('0')
+  const [addToCalendar, setAddToCalendar] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -108,7 +110,7 @@ export default function SessionEditor() {
 
     const d = parseFloat(feeDollarStr)
     const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
-    save.mutate({ ...form, fee_cents }, {
+    save.mutate({ ...form, fee_cents, addToCalendar }, {
       onSuccess: () => {
         if (andClose) navigate(`/clients/${clientId}`)
       }
@@ -211,6 +213,13 @@ export default function SessionEditor() {
             <span className="text-sm font-medium text-slate-700">Paid</span>
           </label>
         </div>
+
+        {isNew && googleStatus.data?.connected && (
+          <label className="mt-4 flex items-center gap-2">
+            <input type="checkbox" checked={addToCalendar} onChange={(e) => setAddToCalendar(e.target.checked)} className="h-5 w-5 rounded border-slate-300" />
+            <span className="text-sm font-medium text-slate-700">Add to Google Calendar</span>
+          </label>
+        )}
       </fieldset>
 
       {save.error && <p className="text-red-600">Save failed: {String(save.error)}</p>}

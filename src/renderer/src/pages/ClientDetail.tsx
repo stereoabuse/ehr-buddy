@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { ClientInput, Session } from '@shared/types'
@@ -165,6 +165,23 @@ function InfoForm({ clientId }: { clientId: string | undefined }) {
 /* ─── Sessions ──────────────────────────────────────────────────── */
 
 function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Session[] }) {
+  const googleStatus = useQuery({ queryKey: ['google', 'status'], queryFn: () => window.api.google.authStatus() })
+  const [exportStatus, setExportStatus] = useState<Record<string, string>>({})
+
+  const handleExport = useCallback(async (sessionId: string) => {
+    setExportStatus((s) => ({ ...s, [sessionId]: 'exporting' }))
+    try {
+      const result = await window.api.google.driveExport(sessionId)
+      if (result) {
+        setExportStatus((s) => ({ ...s, [sessionId]: 'done' }))
+      } else {
+        setExportStatus((s) => ({ ...s, [sessionId]: 'error' }))
+      }
+    } catch {
+      setExportStatus((s) => ({ ...s, [sessionId]: 'error' }))
+    }
+  }, [])
+
   const totalFee = sessions.reduce((s, x) => s + x.fee_cents, 0)
   const totalPaid = sessions.filter((s) => s.paid === 1).reduce((s, x) => s + x.fee_cents, 0)
 
@@ -198,6 +215,7 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
                 <th className="px-4 py-3 font-medium">Fee</th>
                 <th className="px-4 py-3 font-medium">Paid</th>
                 <th className="px-4 py-3 font-medium">Note</th>
+                {googleStatus.data?.connected && <th className="px-4 py-3 font-medium">Drive</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -222,6 +240,25 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
                     <td className="px-4 py-3 text-center">
                       {hasNote ? <span className="text-green-600" title="Note written">✓</span> : <span className="text-slate-300">—</span>}
                     </td>
+                    {googleStatus.data?.connected && (
+                      <td className="px-4 py-3 text-center">
+                        {exportStatus[s.id] === 'exporting' ? (
+                          <span className="text-sm text-slate-400">Exporting…</span>
+                        ) : exportStatus[s.id] === 'done' ? (
+                          <span className="text-sm text-green-600">Exported</span>
+                        ) : exportStatus[s.id] === 'error' ? (
+                          <span className="text-sm text-red-500">Failed</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleExport(s.id)}
+                            className="text-sm text-blue-700 hover:underline"
+                          >
+                            Export
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 )
               })}

@@ -3,6 +3,7 @@ import { join } from 'path'
 import { fileURLToPath } from 'url'
 import { registerIpcHandlers } from './ipc/handlers'
 import { getDb, closeDb } from './db/connection'
+import { restoreSession } from './google/auth'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -39,6 +40,8 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   getDb()
+  // silently load Google tokens if they exist
+  restoreSession()
   registerIpcHandlers()
   createWindow()
 

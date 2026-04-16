@@ -4,6 +4,8 @@ import type {
   ClientListItem,
   Clinician,
   ClinicianInput,
+  GoogleAuthStatus,
+  GoogleCalendarEvent,
   Session,
   SessionInput,
   SessionWithClient
@@ -55,5 +57,12 @@ export interface Api {
   }
   backup: {
     run: () => Promise<{ path: string } | null>
+  }
+  google: {
+    authStart: () => Promise<{ email: string }>
+    authStatus: () => Promise<GoogleAuthStatus>
+    disconnect: () => Promise<void>
+    calendarEvents: (fromDate: string, toDate: string) => Promise<GoogleCalendarEvent[]>
+    driveExport: (sessionId: string) => Promise<{ docId: string } | null>
   }
 }

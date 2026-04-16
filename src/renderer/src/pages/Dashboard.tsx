@@ -4,12 +4,34 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/Button'
 import { CPT_CODES } from '@shared/cpt-codes'
 
+function weekRange(): { from: string; to: string } {
+  const now = new Date()
+  const day = now.getDay() // 0 = Sun
+  const diff = day === 0 ? -6 : 1 - day // Monday as start
+  const monday = new Date(now)
+  monday.setDate(now.getDate() + diff)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  return {
+    from: monday.toISOString().slice(0, 10),
+    to: sunday.toISOString().slice(0, 10)
+  }
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const clients = useQuery({ queryKey: ['clients'], queryFn: () => window.api.clients.list() })
   const clinician = useQuery({ queryKey: ['clinician'], queryFn: () => window.api.clinician.get() })
   const todaySessions = useQuery({ queryKey: ['sessions', 'today'], queryFn: () => window.api.sessions.today() })
   const unpaidSessions = useQuery({ queryKey: ['sessions', 'unpaid'], queryFn: () => window.api.sessions.unpaid() })
+
+  const googleStatus = useQuery({ queryKey: ['google', 'status'], queryFn: () => window.api.google.authStatus() })
+  const week = weekRange()
+  const calendarEvents = useQuery({
+    queryKey: ['google', 'calendar', week.from, week.to],
+    queryFn: () => window.api.google.calendarEvents(week.from, week.to),
+    enabled: googleStatus.data?.connected === true
+  })
 
   const [quickClient, setQuickClient] = useState('')
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
@@ -147,6 +169,32 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* ── This Week (Google Calendar) ────────────── */}
+      {googleStatus.data?.connected && (
+        <div className="rounded-lg border border-slate-200 bg-white p-6">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+            This Week <span className="ml-1 font-normal normal-case text-slate-400">{week.from} – {week.to}</span>
+          </h3>
+          {calendarEvents.isLoading && <p className="mt-3 text-slate-400">Loading calendar…</p>}
+          {calendarEvents.data && calendarEvents.data.length === 0 && (
+            <p className="mt-3 text-slate-400">No events this week.</p>
+          )}
+          {calendarEvents.data && calendarEvents.data.length > 0 && (
+            <ul className="mt-3 divide-y divide-slate-100">
+              {calendarEvents.data.map((ev) => {
+                const start = ev.allDay ? ev.start : ev.start.slice(0, 16).replace('T', ' ')
+                return (
+                  <li key={ev.id} className="flex items-center justify-between py-2">
+                    <span className="text-slate-800">{ev.summary}</span>
+                    <span className="text-sm text-slate-500">{start}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* ── Secondary tiles ───────────────────────── */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

@@ -128,4 +128,21 @@ export interface SessionInput {
   paid?: number
   note_format?: NoteFormat
   note_body?: string | null
+  /** If true, create a Google Calendar event on save (when connected) */
+  addToCalendar?: boolean
+}
+
+/** Google Calendar event (simplified for dashboard agenda) */
+export interface GoogleCalendarEvent {
+  id: string
+  summary: string
+  start: string
+  end: string
+  allDay: boolean
+}
+
+/** Google auth connection status */
+export interface GoogleAuthStatus {
+  connected: boolean
+  email: string | null
 }

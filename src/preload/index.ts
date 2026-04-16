@@ -31,6 +31,15 @@ const api: Api = {
   },
   backup: {
     run: () => ipcRenderer.invoke(IPC.BACKUP_RUN)
+  },
+  google: {
+    authStart: () => ipcRenderer.invoke(IPC.GOOGLE_AUTH_START),
+    authStatus: () => ipcRenderer.invoke(IPC.GOOGLE_AUTH_STATUS),
+    disconnect: () => ipcRenderer.invoke(IPC.GOOGLE_AUTH_DISCONNECT),
+    calendarEvents: (fromDate: string, toDate: string) =>
+      ipcRenderer.invoke(IPC.GOOGLE_CALENDAR_EVENTS, fromDate, toDate),
+    driveExport: (sessionId: string) =>
+      ipcRenderer.invoke(IPC.GOOGLE_DRIVE_EXPORT, sessionId)
   }
 }
 

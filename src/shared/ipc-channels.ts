@@ -15,5 +15,14 @@ export const IPC = {
   SUPERBILL_GENERATE: 'superbill:generate',
   REPORT_INCOME_PDF: 'report:incomePdf',
   REPORT_CSV: 'report:csv',
-  BACKUP_RUN: 'backup:run'
+  BACKUP_RUN: 'backup:run',
+
+  // Google integration
+  GOOGLE_AUTH_START: 'google:authStart',
+  GOOGLE_AUTH_STATUS: 'google:authStatus',
+  GOOGLE_AUTH_DISCONNECT: 'google:disconnect',
+  GOOGLE_CALENDAR_EVENTS: 'google:calendarEvents',
+  GOOGLE_CALENDAR_CREATE: 'google:calendarCreate',
+  GOOGLE_SHEETS_SYNC: 'google:sheetsSync',
+  GOOGLE_DRIVE_EXPORT: 'google:driveExport'
 } as const
