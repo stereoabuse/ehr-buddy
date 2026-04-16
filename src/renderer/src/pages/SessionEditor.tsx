@@ -49,7 +49,7 @@ export default function SessionEditor() {
     note_body: DAP_SCAFFOLDING
   })
   const [feeDollarStr, setFeeDollarStr] = useState('0')
-  const [addToCalendar, setAddToCalendar] = useState(false)
+  const [addToCalendar, setAddToCalendar] = useState(true)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {

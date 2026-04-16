@@ -22,7 +22,5 @@ export const IPC = {
   GOOGLE_AUTH_STATUS: 'google:authStatus',
   GOOGLE_AUTH_DISCONNECT: 'google:disconnect',
   GOOGLE_CALENDAR_EVENTS: 'google:calendarEvents',
-  GOOGLE_CALENDAR_CREATE: 'google:calendarCreate',
-  GOOGLE_SHEETS_SYNC: 'google:sheetsSync',
   GOOGLE_DRIVE_EXPORT: 'google:driveExport'
 } as const

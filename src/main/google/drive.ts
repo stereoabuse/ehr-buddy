@@ -7,7 +7,7 @@
  * 3. Return the doc ID (stored on the session row)
  */
 
-import { google } from 'googleapis'
+import { google, type docs_v1 } from 'googleapis'
 import { getAuthClient, isConnected } from './auth'
 import { getDb } from '../db/connection'
 
@@ -96,21 +96,21 @@ export async function exportNoteToDoc(input: NoteExportInput): Promise<string | 
   const docId = createRes.data.id!
 
   // 2. Build formatted content via batchUpdate
-  const requests: any[] = []
+  const requests: docs_v1.Schema$Request[] = []
   let idx = 1 // docs start at index 1
 
   function insertText(text: string, bold = false, fontSize?: number): void {
     const endIdx = idx + text.length
     requests.push({ insertText: { location: { index: idx }, text } })
     if (bold || fontSize) {
-      const style: any = {}
+      const textStyle: docs_v1.Schema$TextStyle = {}
       const fields: string[] = []
-      if (bold) { style.bold = true; fields.push('bold') }
-      if (fontSize) { style.fontSize = { magnitude: fontSize, unit: 'PT' }; fields.push('fontSize') }
+      if (bold) { textStyle.bold = true; fields.push('bold') }
+      if (fontSize) { textStyle.fontSize = { magnitude: fontSize, unit: 'PT' }; fields.push('fontSize') }
       requests.push({
         updateTextStyle: {
           range: { startIndex: idx, endIndex: endIdx },
-          textStyle: style,
+          textStyle,
           fields: fields.join(',')
         }
       })

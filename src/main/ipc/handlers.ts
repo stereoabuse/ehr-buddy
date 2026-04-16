@@ -9,7 +9,8 @@ import { generateTaxReport } from '../pdf/tax-report'
 import { generateCsvExport } from '../reports/csv-export'
 import { runBackup } from '../backup'
 
-import { startAuthFlow, getAuthStatus, disconnect } from '../google/auth'
+import { google } from 'googleapis'
+import { startAuthFlow, getAuthStatus, disconnect, getAuthClient } from '../google/auth'
 import { listEvents, createSessionEvent, deleteSessionEvent } from '../google/calendar'
 import { appendSessionRow } from '../google/sheets'
 import { exportNoteToDoc } from '../google/drive'
@@ -232,9 +233,19 @@ export function registerIpcHandlers(): void {
     const session = sessionsRepo.get(sessionId)
     if (!session) return null
 
-    // Check if already exported
+    // Check if already exported — verify doc still exists in Drive
     const existingDocId = sessionsRepo.getGoogleDocId(sessionId)
-    if (existingDocId) return { docId: existingDocId }
+    if (existingDocId) {
+      try {
+        const auth = getAuthClient()
+        const drive = google.drive({ version: 'v3', auth })
+        const res = await drive.files.get({ fileId: existingDocId, fields: 'id,trashed' })
+        if (!res.data.trashed) return { docId: existingDocId }
+      } catch {
+        // Doc was deleted or inaccessible — clear and re-export
+      }
+      sessionsRepo.setGoogleDocId(sessionId, null)
+    }
 
     const client = clientsRepo.get(session.client_id)
     const clinician = clinicianRepo.get()

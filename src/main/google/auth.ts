@@ -104,6 +104,7 @@ export function startAuthFlow(): Promise<{ email: string }> {
 
     let server: Server | null = null
     let authWindow: BrowserWindow | null = null
+    let settled = false // guard against double-resolve/reject
 
     // Loopback HTTP server to capture the redirect
     server = createServer(async (req, res) => {
@@ -116,7 +117,7 @@ export function startAuthFlow(): Promise<{ email: string }> {
           res.writeHead(200, { 'Content-Type': 'text/html' })
           res.end('<html><body><h2>Authorization denied.</h2><p>You can close this window.</p></body></html>')
           cleanup()
-          reject(new Error(`Google auth denied: ${error}`))
+          if (!settled) { settled = true; reject(new Error(`Google auth denied: ${error}`)) }
           return
         }
 
@@ -158,12 +159,20 @@ export function startAuthFlow(): Promise<{ email: string }> {
         res.writeHead(200, { 'Content-Type': 'text/html' })
         res.end(`<html><body><h2>Connected as ${email}!</h2><p>You can close this window and return to EHR Buddy.</p></body></html>`)
         cleanup()
-        resolve({ email })
+        if (!settled) { settled = true; resolve({ email }) }
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'text/html' })
         res.end('<html><body><h2>Something went wrong.</h2></body></html>')
         cleanup()
-        reject(err)
+        if (!settled) { settled = true; reject(err) }
+      }
+    })
+
+    server.on('error', (err) => {
+      cleanup()
+      if (!settled) {
+        settled = true
+        reject(new Error(`Could not start auth server on port ${REDIRECT_PORT}. Is another instance running? (${err.message})`))
       }
     })
 
@@ -179,8 +188,8 @@ export function startAuthFlow(): Promise<{ email: string }> {
       authWindow.loadURL(authUrl)
       authWindow.on('closed', () => {
         authWindow = null
-        // If user closed the window before completing auth
         cleanup()
+        if (!settled) { settled = true; reject(new Error('Google sign-in was cancelled.')) }
       })
     })
 

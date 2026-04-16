@@ -1,6 +1,10 @@
-# EHR Buddy
+<p align="center">
+  <img src="resources/icon.png" alt="EHR Buddy" width="128" />
+</p>
 
-Minimal local EHR for solo mental health practice. No cloud, no accounts, no subscriptions -- just a desktop app that stores everything on your machine.
+<h1 align="center">EHR Buddy</h1>
+
+<p align="center">Minimal local EHR for solo mental health practice.<br/>No cloud, no accounts, no subscriptions — just a desktop app that stores everything on your machine.</p>
 
 ## What it does
 
@@ -18,18 +22,18 @@ There is no cloud sync, no user authentication, no payment processing, and no in
 
 ## For clinicians (installing and using the app)
 
-Download the latest installer from the [Releases page](https://github.com/stereoabuse/ehr-buddy/releases/latest).
+Download the latest installer from the **Releases** page in the sidebar.
 
 ### Windows
 
-1. Download **EHR Buddy Setup x.x.x.exe** from the Releases page.
+1. Download **EHR Buddy Setup x.x.x.exe** from Releases.
 2. Run the installer. Choose an install location or accept the default.
 3. **SmartScreen warning:** Windows will show a "Windows protected your PC" dialog on first launch because the app is not code-signed. Click **"More info"**, then click **"Run anyway"**. This is normal for v1.
 4. Launch EHR Buddy from your Start menu or desktop shortcut.
 
 ### macOS
 
-1. Download **EHR Buddy-x.x.x.dmg** from the Releases page.
+1. Download **EHR Buddy-x.x.x.dmg** from Releases.
 2. Open the DMG and drag EHR Buddy to your Applications folder.
 3. **Gatekeeper warning:** macOS will block the app on first launch. Right-click (or Control-click) the app and choose **Open**, then click **Open** in the dialog.
 4. Launch EHR Buddy from Applications.
@@ -132,4 +136,4 @@ src/
 
 ## License
 
-Private. Not open source.
+MIT
