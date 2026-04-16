@@ -25,6 +25,10 @@ const api: Api = {
   superbill: {
     generate: (args) => ipcRenderer.invoke(IPC.SUPERBILL_GENERATE, args)
   },
+  reports: {
+    incomePdf: (args) => ipcRenderer.invoke(IPC.REPORT_INCOME_PDF, args),
+    csv: (args) => ipcRenderer.invoke(IPC.REPORT_CSV, args)
+  },
   backup: {
     run: () => ipcRenderer.invoke(IPC.BACKUP_RUN)
   }

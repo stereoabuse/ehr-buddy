@@ -89,6 +89,17 @@ export function today(): SessionWithClient[] {
     .all(todayStr) as SessionWithClient[]
 }
 
+export function allInRange(fromDate: string, toDate: string): SessionWithClient[] {
+  return getDb()
+    .prepare(
+      `SELECT s.*, c.first_name AS client_first_name, c.last_name AS client_last_name
+       FROM sessions s JOIN clients c ON s.client_id = c.id
+       WHERE s.session_date >= ? AND s.session_date <= ? AND c.active = 1
+       ORDER BY s.session_date, s.start_time`
+    )
+    .all(fromDate, toDate) as SessionWithClient[]
+}
+
 export function allUnpaid(): SessionWithClient[] {
   return getDb()
     .prepare(

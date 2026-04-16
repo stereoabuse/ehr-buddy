@@ -21,6 +21,11 @@ export interface SuperbillArgs {
   toDate: string
 }
 
+export interface ReportArgs {
+  fromDate: string
+  toDate: string
+}
+
 export interface Api {
   ping: () => Promise<PingResult>
   clients: {
@@ -43,6 +48,10 @@ export interface Api {
   }
   superbill: {
     generate: (args: SuperbillArgs) => Promise<{ path: string } | null>
+  }
+  reports: {
+    incomePdf: (args: ReportArgs) => Promise<{ path: string } | null>
+    csv: (args: ReportArgs) => Promise<{ path: string } | null>
   }
   backup: {
     run: () => Promise<{ path: string } | null>

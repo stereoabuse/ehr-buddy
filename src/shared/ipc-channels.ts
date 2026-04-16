@@ -13,5 +13,7 @@ export const IPC = {
   SESSIONS_TODAY: 'sessions:today',
   SESSIONS_UNPAID: 'sessions:unpaid',
   SUPERBILL_GENERATE: 'superbill:generate',
+  REPORT_INCOME_PDF: 'report:incomePdf',
+  REPORT_CSV: 'report:csv',
   BACKUP_RUN: 'backup:run'
 } as const

@@ -5,6 +5,8 @@ import * as clientsRepo from '../db/repos/clients'
 import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
 import { generateSuperbill } from '../pdf/superbill'
+import { generateTaxReport } from '../pdf/tax-report'
+import { generateCsvExport } from '../reports/csv-export'
 import { runBackup } from '../backup'
 
 const clientUpsertSchema = z.object({
@@ -108,6 +110,21 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.SUPERBILL_GENERATE, async (_e, input: unknown) => {
     const args = superbillSchema.parse(input)
     const path = await generateSuperbill(args)
+    return path ? { path } : null
+  })
+
+  // reports
+  const reportArgsSchema = z.object({ fromDate: z.string().min(1), toDate: z.string().min(1) })
+
+  ipcMain.handle(IPC.REPORT_INCOME_PDF, async (_e, input: unknown) => {
+    const args = reportArgsSchema.parse(input)
+    const path = await generateTaxReport(args)
+    return path ? { path } : null
+  })
+
+  ipcMain.handle(IPC.REPORT_CSV, async (_e, input: unknown) => {
+    const args = reportArgsSchema.parse(input)
+    const path = await generateCsvExport(args)
     return path ? { path } : null
   })
 
