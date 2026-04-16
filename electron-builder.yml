@@ -1,0 +1,33 @@
+appId: com.stereoabuse.ehrbuddy
+productName: EHR Buddy
+copyright: Copyright © 2026
+
+directories:
+  buildResources: resources
+  output: dist
+
+asar: true
+asarUnpack:
+  - "**/better_sqlite3.node"
+  - "**/pdfkit/**"
+
+files:
+  - out/**/*
+  - "!node_modules/**/{test,tests,__tests__}/**"
+  - "!node_modules/**/*.{md,ts,map}"
+
+mac:
+  target: dmg
+  category: public.app-category.medical
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+# Uninstaller does NOT remove userData (ehrbuddy.db) — PHI is preserved
