@@ -12,15 +12,19 @@ export const IPC = {
   SESSIONS_DELETE: 'sessions:delete',
   SESSIONS_TODAY: 'sessions:today',
   SESSIONS_UNPAID: 'sessions:unpaid',
+  SESSIONS_SET_PAID: 'sessions:setPaid',
+  SESSIONS_SIGN: 'sessions:sign',
+  SESSIONS_ADD_AMENDMENT: 'sessions:addAmendment',
+  SESSIONS_LIST_AMENDMENTS: 'sessions:listAmendments',
   SUPERBILL_GENERATE: 'superbill:generate',
   REPORT_INCOME_PDF: 'report:incomePdf',
   REPORT_CSV: 'report:csv',
   BACKUP_RUN: 'backup:run',
-
-  // Google integration
-  GOOGLE_AUTH_START: 'google:authStart',
-  GOOGLE_AUTH_STATUS: 'google:authStatus',
-  GOOGLE_AUTH_DISCONNECT: 'google:disconnect',
-  GOOGLE_CALENDAR_EVENTS: 'google:calendarEvents',
-  GOOGLE_DRIVE_EXPORT: 'google:driveExport'
+  AUDIT_LIST: 'audit:list',
+  AUDIT_CSV: 'audit:csv',
+  DOCUMENTS_LIST: 'documents:list',
+  DOCUMENTS_UPLOAD: 'documents:upload',
+  DOCUMENTS_OPEN: 'documents:open',
+  DOCUMENTS_DOWNLOAD: 'documents:download',
+  DOCUMENTS_DELETE: 'documents:delete'
 } as const

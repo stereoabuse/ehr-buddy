@@ -20,7 +20,11 @@ const api: Api = {
     upsert: (input) => ipcRenderer.invoke(IPC.SESSIONS_UPSERT, input),
     delete: (id) => ipcRenderer.invoke(IPC.SESSIONS_DELETE, id),
     today: () => ipcRenderer.invoke(IPC.SESSIONS_TODAY),
-    unpaid: () => ipcRenderer.invoke(IPC.SESSIONS_UNPAID)
+    unpaid: () => ipcRenderer.invoke(IPC.SESSIONS_UNPAID),
+    setPaid: (id, paid) => ipcRenderer.invoke(IPC.SESSIONS_SET_PAID, { id, paid }),
+    sign: (args) => ipcRenderer.invoke(IPC.SESSIONS_SIGN, args),
+    addAmendment: (args) => ipcRenderer.invoke(IPC.SESSIONS_ADD_AMENDMENT, args),
+    listAmendments: (sessionId) => ipcRenderer.invoke(IPC.SESSIONS_LIST_AMENDMENTS, sessionId)
   },
   superbill: {
     generate: (args) => ipcRenderer.invoke(IPC.SUPERBILL_GENERATE, args)
@@ -32,14 +36,16 @@ const api: Api = {
   backup: {
     run: () => ipcRenderer.invoke(IPC.BACKUP_RUN)
   },
-  google: {
-    authStart: () => ipcRenderer.invoke(IPC.GOOGLE_AUTH_START),
-    authStatus: () => ipcRenderer.invoke(IPC.GOOGLE_AUTH_STATUS),
-    disconnect: () => ipcRenderer.invoke(IPC.GOOGLE_AUTH_DISCONNECT),
-    calendarEvents: (fromDate: string, toDate: string) =>
-      ipcRenderer.invoke(IPC.GOOGLE_CALENDAR_EVENTS, fromDate, toDate),
-    driveExport: (sessionId: string) =>
-      ipcRenderer.invoke(IPC.GOOGLE_DRIVE_EXPORT, sessionId)
+  audit: {
+    list: (filter) => ipcRenderer.invoke(IPC.AUDIT_LIST, filter),
+    csv: (filter) => ipcRenderer.invoke(IPC.AUDIT_CSV, filter)
+  },
+  documents: {
+    list: (clientId) => ipcRenderer.invoke(IPC.DOCUMENTS_LIST, clientId),
+    upload: (input) => ipcRenderer.invoke(IPC.DOCUMENTS_UPLOAD, input),
+    open: (id) => ipcRenderer.invoke(IPC.DOCUMENTS_OPEN, id),
+    download: (id) => ipcRenderer.invoke(IPC.DOCUMENTS_DOWNLOAD, id),
+    delete: (id) => ipcRenderer.invoke(IPC.DOCUMENTS_DELETE, id)
   }
 }
 

@@ -6,6 +6,7 @@ import ClientDetail from './pages/ClientDetail'
 import ClinicianProfile from './pages/ClinicianProfile'
 import SessionEditor from './pages/SessionEditor'
 import Reports from './pages/Reports'
+import Activity from './pages/Activity'
 import Settings from './pages/Settings'
 
 const queryClient = new QueryClient({
@@ -26,6 +27,7 @@ export default function App() {
                 <Link to="/" className="text-slate-600 hover:text-slate-900">Dashboard</Link>
                 <Link to="/clients" className="text-slate-600 hover:text-slate-900">Clients</Link>
                 <Link to="/reports" className="text-slate-600 hover:text-slate-900">Reports</Link>
+                <Link to="/activity" className="text-slate-600 hover:text-slate-900">Activity</Link>
                 <Link to="/profile" className="text-slate-600 hover:text-slate-900">Profile</Link>
                 <Link to="/settings" className="text-slate-600 hover:text-slate-900">Settings</Link>
               </nav>
@@ -41,6 +43,7 @@ export default function App() {
               <Route path="/reports" element={<Reports />} />
               <Route path="/clients/:clientId/sessions/new" element={<SessionEditor />} />
               <Route path="/clients/:clientId/sessions/:sessionId" element={<SessionEditor />} />
+              <Route path="/activity" element={<Activity />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>

@@ -10,13 +10,17 @@
 
 - **Client records** -- name, contact info, diagnosis, insurance details
 - **Session notes** -- DAP format or free-text, with CPT codes and fees
+- **Sign off & lock notes** -- finalize a progress note; later changes are recorded as dated, append-only amendments
+- **Consent forms** -- upload signed PDFs (informed consent, ROI, intake, etc.) per client
 - **Clinician profile** -- your credentials, NPI, tax ID, and default fee schedule
+- **Inline payment tracking** -- toggle paid status from the sessions list, plus a per-client Billing view of unpaid balance
 - **Superbill PDFs** -- one-click generation for client reimbursement
 - **Income reports** -- filterable by date range, exported as PDF or CSV
 - **Tax CSV export** -- yearly totals formatted for your accountant
+- **Activity log** -- append-only record of every read, edit, and export of patient data (HIPAA §164.312(b))
 - **One-click backup** -- copies the database to a location you choose
 
-There is no cloud sync, no user authentication, no payment processing, and no insurance claim submission. The app is designed for a single clinician on a single machine.
+There is no cloud sync, no user authentication, no payment processing, no insurance claim submission, and no third-party services of any kind. EHR Buddy never makes a network request. The app is designed for a single clinician on a single machine.
 
 ---
 
@@ -109,12 +113,13 @@ src/
     ipc/           # IPC handler registration
     pdf/           # Superbill and tax report PDF generation (pdfkit)
     reports/       # CSV export logic
+    audit.ts       # Append-only audit log helper
     backup.ts      # Database backup
     index.ts       # Main process entry
   preload/         # Context bridge
   renderer/src/    # React UI
     components/    # Shared UI components
-    pages/         # Route pages (Dashboard, ClientList, etc.)
+    pages/         # Route pages (Dashboard, ClientList, Activity, etc.)
     styles/        # Tailwind globals
   shared/          # Types shared between main and renderer
 ```

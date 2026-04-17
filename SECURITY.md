@@ -84,13 +84,19 @@ EHR Buddy v1 does not have a login screen, password, or PIN. Anyone who can open
 
 ---
 
-## 7. No audit log (v1 limitation)
+## 7. Audit log
 
-EHR Buddy v1 does not record who accessed or modified records, or when. HIPAA requires covered entities to track access to PHI.
+EHR Buddy records every read, edit, and export of patient data to satisfy HIPAA §164.312(b) (audit controls). The log captures:
 
-- Be aware of this gap when assessing your compliance posture.
-- A future version may add audit logging.
-- If you are subject to a compliance audit, document this limitation and your compensating controls (disk encryption, physical security, screen lock).
+- Timestamp (ISO 8601)
+- OS user account that ran the app
+- Action (e.g. `client_view`, `session_update`, `superbill_generate`, `backup_run`)
+- Entity type and ID
+- A small JSON details blob (e.g. fee, paid status, output path)
+
+The log lives in the same SQLite database as your other data, in a table called `audit_log`. The table has database triggers that block any UPDATE or DELETE — entries can only be appended. SQLite cannot enforce this against an attacker who edits the file directly with another tool, so disk security still matters, but the app itself cannot tamper with past entries.
+
+You can browse the log under **Activity** in the app and export the full history to CSV for record keeping or a compliance audit.
 
 ---
 
@@ -110,9 +116,27 @@ Because all data is local and unprotected by a login, physical security of your 
 - [ ] OS user account has a strong password
 - [ ] Computer locks automatically after a short idle period
 - [ ] Backups are stored on encrypted media only
+- [ ] **Documents folder is backed up alongside the database** (see §10)
 - [ ] Superbills are sent via encrypted email or secure messaging
 - [ ] Tax ID field uses EIN rather than SSN
 - [ ] Computer screen is not visible to unauthorized people during use
+
+---
+
+## 10. Uploaded documents and backups
+
+When you upload a consent form (or any document) for a client, the file is copied into a folder next to the database:
+
+| OS      | Path                                                              |
+|---------|-------------------------------------------------------------------|
+| Windows | `%APPDATA%\EHR Buddy\documents\`                                  |
+| macOS   | `~/Library/Application Support/ehr-buddy/documents/`              |
+
+Files are stored unencrypted on disk, with the same threat model as the SQLite database — disk encryption is your control. Only metadata (label, type, size, original filename) lives in the database; the bytes live in this folder, named with a random UUID + the original extension.
+
+**The one-click backup currently copies only the database file.** It does not include the documents folder. If you rely on uploaded consents being recoverable, you must back up this folder yourself in addition to running the in-app backup. A combined backup is on the roadmap.
+
+If you delete a document from inside EHR Buddy, the file is removed from disk and the database row is removed. Deleting a client (which only soft-deletes today) does not delete their documents.
 
 ---
 

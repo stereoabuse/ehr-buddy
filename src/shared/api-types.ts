@@ -1,12 +1,15 @@
 import type {
+  AuditEntry,
+  AuditFilter,
   Client,
+  ClientDocument,
   ClientInput,
   ClientListItem,
   Clinician,
   ClinicianInput,
-  GoogleAuthStatus,
-  GoogleCalendarEvent,
+  DocumentUploadInput,
   Session,
+  SessionAmendment,
   SessionInput,
   SessionWithClient
 } from './types'
@@ -28,6 +31,17 @@ export interface ReportArgs {
   toDate: string
 }
 
+export interface SignSessionArgs {
+  id: string
+  body: string
+  note_format: 'DAP' | 'FREE'
+}
+
+export interface AddAmendmentArgs {
+  session_id: string
+  body: string
+}
+
 export interface Api {
   ping: () => Promise<PingResult>
   clients: {
@@ -47,6 +61,10 @@ export interface Api {
     delete: (id: string) => Promise<{ ok: boolean }>
     today: () => Promise<SessionWithClient[]>
     unpaid: () => Promise<SessionWithClient[]>
+    setPaid: (id: string, paid: 0 | 1) => Promise<Session>
+    sign: (args: SignSessionArgs) => Promise<Session>
+    addAmendment: (args: AddAmendmentArgs) => Promise<SessionAmendment>
+    listAmendments: (sessionId: string) => Promise<SessionAmendment[]>
   }
   superbill: {
     generate: (args: SuperbillArgs) => Promise<{ path: string } | null>
@@ -58,11 +76,15 @@ export interface Api {
   backup: {
     run: () => Promise<{ path: string } | null>
   }
-  google: {
-    authStart: () => Promise<{ email: string }>
-    authStatus: () => Promise<GoogleAuthStatus>
-    disconnect: () => Promise<void>
-    calendarEvents: (fromDate: string, toDate: string) => Promise<GoogleCalendarEvent[]>
-    driveExport: (sessionId: string) => Promise<{ docId: string } | null>
+  audit: {
+    list: (filter: AuditFilter) => Promise<AuditEntry[]>
+    csv: (filter: AuditFilter) => Promise<{ path: string } | null>
+  }
+  documents: {
+    list: (clientId: string) => Promise<ClientDocument[]>
+    upload: (input: DocumentUploadInput) => Promise<ClientDocument | null>
+    open: (id: string) => Promise<{ ok: boolean; error?: string }>
+    download: (id: string) => Promise<{ path: string } | null>
+    delete: (id: string) => Promise<{ ok: boolean }>
   }
 }

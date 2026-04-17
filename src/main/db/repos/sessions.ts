@@ -1,6 +1,11 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '../connection'
-import type { Session, SessionInput, SessionWithClient } from '../../../shared/types'
+import type {
+  Session,
+  SessionAmendment,
+  SessionInput,
+  SessionWithClient
+} from '../../../shared/types'
 
 export function listByClient(clientId: string): Session[] {
   return getDb()
@@ -12,6 +17,10 @@ export function listByClient(clientId: string): Session[] {
 
 export function get(id: string): Session | undefined {
   return getDb().prepare('SELECT * FROM sessions WHERE id = ?').get(id) as Session | undefined
+}
+
+export function exists(id: string): boolean {
+  return !!getDb().prepare('SELECT 1 FROM sessions WHERE id = ?').get(id)
 }
 
 export function upsert(input: SessionInput): Session {
@@ -77,8 +86,90 @@ export function del(id: string): void {
   getDb().prepare('DELETE FROM sessions WHERE id = ?').run(id)
 }
 
+/** Update only paid/fee_cents on a signed session — used by sign-lock path. */
+export function updateBilling(id: string, paid: 0 | 1, fee_cents: number): Session {
+  const now = new Date().toISOString()
+  getDb()
+    .prepare('UPDATE sessions SET paid = ?, fee_cents = ?, updated_at = ? WHERE id = ?')
+    .run(paid, fee_cents, now, id)
+  return get(id)!
+}
+
+/** Toggle paid only. Used by inline mark-paid action. */
+export function setPaid(id: string, paid: 0 | 1): Session {
+  const now = new Date().toISOString()
+  getDb()
+    .prepare('UPDATE sessions SET paid = ?, updated_at = ? WHERE id = ?')
+    .run(paid, now, id)
+  return get(id)!
+}
+
+/** Sign off on a session (writes the latest body+format then snapshots the signer). */
+export function sign(
+  id: string,
+  body: string,
+  note_format: 'DAP' | 'FREE',
+  signedAt: string,
+  signerName: string,
+  signerCredentials: string | null
+): Session {
+  const now = new Date().toISOString()
+  getDb()
+    .prepare(
+      `UPDATE sessions SET
+         note_body = ?,
+         note_format = ?,
+         signed_at = ?,
+         signed_by_name = ?,
+         signed_by_credentials = ?,
+         updated_at = ?
+       WHERE id = ?`
+    )
+    .run(body, note_format, signedAt, signerName, signerCredentials, now, id)
+  return get(id)!
+}
+
+export function addAmendment(input: {
+  session_id: string
+  body: string
+  signedAt: string
+  signerName: string
+  signerCredentials: string | null
+}): SessionAmendment {
+  const id = randomUUID()
+  const now = new Date().toISOString()
+  getDb()
+    .prepare(
+      `INSERT INTO session_amendments (
+         id, session_id, body,
+         signed_at, signed_by_name, signed_by_credentials,
+         created_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      id,
+      input.session_id,
+      input.body,
+      input.signedAt,
+      input.signerName,
+      input.signerCredentials,
+      now
+    )
+  return getDb()
+    .prepare('SELECT * FROM session_amendments WHERE id = ?')
+    .get(id) as SessionAmendment
+}
+
+export function listAmendments(sessionId: string): SessionAmendment[] {
+  return getDb()
+    .prepare(
+      'SELECT * FROM session_amendments WHERE session_id = ? ORDER BY created_at ASC'
+    )
+    .all(sessionId) as SessionAmendment[]
+}
+
 export function today(): SessionWithClient[] {
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = localDateStr(new Date())
   return getDb()
     .prepare(
       `SELECT s.*, c.first_name AS client_first_name, c.last_name AS client_last_name
@@ -111,32 +202,11 @@ export function allUnpaid(): SessionWithClient[] {
     .all() as SessionWithClient[]
 }
 
-/** Set the Google Calendar event ID on a session */
-export function setGoogleEventId(sessionId: string, eventId: string | null): void {
-  getDb()
-    .prepare('UPDATE sessions SET google_event_id = ? WHERE id = ?')
-    .run(eventId, sessionId)
-}
-
-/** Set the Google Doc ID on a session */
-export function setGoogleDocId(sessionId: string, docId: string | null): void {
-  getDb()
-    .prepare('UPDATE sessions SET google_doc_id = ? WHERE id = ?')
-    .run(docId, sessionId)
-}
-
-/** Get google_event_id for a session */
-export function getGoogleEventId(sessionId: string): string | null {
-  const row = getDb()
-    .prepare('SELECT google_event_id FROM sessions WHERE id = ?')
-    .get(sessionId) as { google_event_id: string | null } | undefined
-  return row?.google_event_id ?? null
-}
-
-/** Get google_doc_id for a session */
-export function getGoogleDocId(sessionId: string): string | null {
-  const row = getDb()
-    .prepare('SELECT google_doc_id FROM sessions WHERE id = ?')
-    .get(sessionId) as { google_doc_id: string | null } | undefined
-  return row?.google_doc_id ?? null
+// Local date (YYYY-MM-DD) so "today" matches the clinician's wall clock,
+// not UTC. Avoids the late-evening Pacific bug where today rolls forward.
+function localDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }

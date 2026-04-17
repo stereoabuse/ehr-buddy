@@ -106,6 +106,10 @@ export interface Session {
   paid: number
   note_format: NoteFormat
   note_body: string | null
+  /** ISO timestamp when the note was signed; null if unsigned (still a draft) */
+  signed_at: string | null
+  signed_by_name: string | null
+  signed_by_credentials: string | null
   created_at: string
   updated_at: string
 }
@@ -128,21 +132,86 @@ export interface SessionInput {
   paid?: number
   note_format?: NoteFormat
   note_body?: string | null
-  /** If true, create a Google Calendar event on save (when connected) */
-  addToCalendar?: boolean
 }
 
-/** Google Calendar event (simplified for dashboard agenda) */
-export interface GoogleCalendarEvent {
+export interface SessionAmendment {
   id: string
-  summary: string
-  start: string
-  end: string
-  allDay: boolean
+  session_id: string
+  body: string
+  signed_at: string
+  signed_by_name: string
+  signed_by_credentials: string | null
+  created_at: string
 }
 
-/** Google auth connection status */
-export interface GoogleAuthStatus {
-  connected: boolean
-  email: string | null
+export type DocType = 'consent' | 'roi' | 'intake' | 'other'
+
+export interface ClientDocument {
+  id: string
+  client_id: string
+  doc_type: DocType
+  label: string
+  stored_filename: string
+  original_filename: string | null
+  mime_type: string | null
+  size_bytes: number | null
+  uploaded_at: string
+  notes: string | null
+}
+
+export interface DocumentUploadInput {
+  clientId: string
+  doc_type: DocType
+  label: string
+  notes?: string | null
+}
+
+export type AuditAction =
+  | 'app_start'
+  | 'client_view'
+  | 'client_create'
+  | 'client_update'
+  | 'client_delete'
+  | 'session_view'
+  | 'session_create'
+  | 'session_update'
+  | 'session_delete'
+  | 'session_sign'
+  | 'session_amend'
+  | 'session_set_paid'
+  | 'clinician_update'
+  | 'superbill_generate'
+  | 'report_pdf'
+  | 'report_csv'
+  | 'backup_run'
+  | 'document_upload'
+  | 'document_view'
+  | 'document_download'
+  | 'document_delete'
+
+export type AuditEntity =
+  | 'app'
+  | 'client'
+  | 'session'
+  | 'clinician'
+  | 'superbill'
+  | 'report'
+  | 'backup'
+  | 'document'
+
+export interface AuditEntry {
+  id: number
+  ts: string
+  os_user: string | null
+  action: AuditAction
+  entity_type: AuditEntity
+  entity_id: string | null
+  details: string | null
+}
+
+export interface AuditFilter {
+  fromDate?: string
+  toDate?: string
+  entity_type?: AuditEntity | ''
+  limit?: number
 }
