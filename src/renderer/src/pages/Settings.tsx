@@ -9,7 +9,7 @@ export default function Settings() {
         <h3 className="text-lg font-semibold">About</h3>
         <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
           <dt className="font-medium text-slate-600">App</dt>
-          <dd>EHR Buddy v0.1.0</dd>
+          <dd>EHR Buddy v0.2.0</dd>
           <dt className="font-medium text-slate-600">Data</dt>
           <dd className="break-all text-slate-500">
             Stored locally in your user data folder. Disk encryption strongly recommended — see SECURITY.md.

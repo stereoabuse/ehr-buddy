@@ -1,6 +1,6 @@
 {
   "name": "ehr-buddy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Minimal local EHR for solo therapy practice",
   "main": "./out/main/index.js",
   "author": "stereoabuse",
