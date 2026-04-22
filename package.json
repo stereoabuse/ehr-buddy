@@ -13,16 +13,18 @@
     "start": "electron-vite preview",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.0",
-    "better-sqlite3": "^11.1.2",
+    "better-sqlite3": "^11.10.0",
     "pdfkit": "^0.15.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0",
-    "zod": "^3.23.8"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
@@ -37,6 +39,7 @@
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.3",
-    "vite": "^5.3.3"
+    "vite": "^5.3.3",
+    "vitest": "^2.1.9"
   }
 }
