@@ -49,11 +49,11 @@ export function listAudit(filter: AuditFilter = {}): AuditEntry[] {
 
   if (filter.fromDate) {
     where.push('ts >= ?')
-    params.push(filter.fromDate + 'T00:00:00.000Z')
+    params.push(localDayBoundaryIso(filter.fromDate, 'start'))
   }
   if (filter.toDate) {
     where.push('ts <= ?')
-    params.push(filter.toDate + 'T23:59:59.999Z')
+    params.push(localDayBoundaryIso(filter.toDate, 'end'))
   }
   if (filter.entity_type) {
     where.push('entity_type = ?')
@@ -98,4 +98,16 @@ function csvEscape(value: string): string {
     return `"${value.replace(/"/g, '""')}"`
   }
   return value
+}
+
+function localDayBoundaryIso(dateStr: string, boundary: 'start' | 'end'): string {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  if (!year || !month || !day) return dateStr
+
+  const date =
+    boundary === 'start'
+      ? new Date(year, month - 1, day, 0, 0, 0, 0)
+      : new Date(year, month - 1, day, 23, 59, 59, 999)
+
+  return date.toISOString()
 }

@@ -365,7 +365,15 @@ export function registerIpcHandlers(): void {
   })
 
   // ── documents ───────────────────────────────────────────────
-  ipcMain.handle(IPC.DOCUMENTS_LIST, (_e, clientId: string) => documentsRepo.list(clientId))
+  ipcMain.handle(IPC.DOCUMENTS_LIST, (_e, clientId: string) => {
+    const docs = documentsRepo.list(clientId)
+    audit('document_view', 'document', null, {
+      client_id: clientId,
+      metadata_only: true,
+      count: docs.length
+    })
+    return docs
+  })
 
   ipcMain.handle(IPC.DOCUMENTS_UPLOAD, async (_e, input: unknown) => {
     const args = documentUploadSchema.parse(input)
