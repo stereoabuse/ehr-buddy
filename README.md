@@ -8,8 +8,9 @@
 
 ## What it does
 
-- **Client records** -- name, contact info, diagnosis, insurance details
-- **Session notes** -- DAP format or free-text, with CPT codes and fees
+- **Client roster** -- name, contact info, insurance details, last-seen date and unsigned-note counts at a glance
+- **Diagnoses** -- ICD-10 autocomplete picker for F (mental/behavioral) and Z (encounter) codes
+- **Progress notes** -- structured fields (presentation, interventions, response, plan, risk) with CPT codes and fees; legacy DAP and free-text notes are preserved read-only
 - **Sign off & lock notes** -- finalize a progress note; later changes are recorded as dated, append-only amendments
 - **Consent forms** -- upload signed PDFs (informed consent, ROI, intake, etc.) per client
 - **Clinician profile** -- your credentials, NPI, tax ID, and default fee schedule
@@ -17,7 +18,7 @@
 - **Superbill PDFs** -- one-click generation for client reimbursement
 - **Income reports** -- filterable by date range, exported as PDF or CSV
 - **Tax CSV export** -- yearly totals formatted for your accountant
-- **Activity log** -- append-only record of every read, edit, and export of patient data (HIPAA §164.312(b))
+- **Activity log** -- append-only record of every read, edit, and export of patient data (HIPAA §164.312(b)), surfaced under Settings
 - **One-click backup** -- copies the database to a location you choose
 
 There is no cloud sync, no user authentication, no payment processing, no insurance claim submission, and no third-party services of any kind. EHR Buddy never makes a network request. The app is designed for a single clinician on a single machine.
@@ -92,6 +93,14 @@ This starts `electron-vite` in dev mode with hot reload for the renderer process
 npm run typecheck
 ```
 
+### Refreshing the ICD-10 code list
+
+The bundled F/Z code list is generated from the CMS valid-codes file. To refresh it:
+
+```bash
+npm run icd10:refresh
+```
+
 ### Building distributables
 
 ```bash
@@ -118,10 +127,12 @@ src/
     index.ts       # Main process entry
   preload/         # Context bridge
   renderer/src/    # React UI
-    components/    # Shared UI components
-    pages/         # Route pages (Dashboard, ClientList, Activity, etc.)
+    components/    # Shared UI components (Sidebar, TopBar, Icd10Picker, PaidToggle, etc.)
+    pages/         # Route pages (Dashboard, ClientList, ClientDetail, SessionEditor, Reports, Settings, Activity, ClinicianProfile)
+    lib/           # Renderer-side utilities
     styles/        # Tailwind globals
   shared/          # Types shared between main and renderer
+scripts/           # Dev/maintenance scripts (e.g. ICD-10 refresh)
 ```
 
 ### Stack
