@@ -1,0 +1,74 @@
+/* design-handoff/tokens.css
+ *
+ * Drop these into src/renderer/src/styles/globals.css (after Tailwind directives)
+ * or import as a separate stylesheet. They expose the redesign palette as CSS
+ * custom properties so any component (Tailwind utilities, inline styles, raw CSS)
+ * can reference them.
+ *
+ * Tailwind users: prefer tailwind.tokens.js for utility classes (bg-canvas,
+ * text-ink, etc.). Use these vars for one-off styles or runtime theming.
+ */
+
+:root {
+  /* Ink (text) — cool warm-neutral scale */
+  --color-ink:        #1E2230;   /* primary headings, hi-contrast text */
+  --color-ink-2:      #2D3242;   /* secondary headings */
+  --color-body:       #4B5267;   /* body copy */
+  --color-muted:      #7A8095;   /* labels, captions, metadata */
+  --color-faint:      #A8AEC0;   /* placeholders, disabled */
+
+  /* Surfaces */
+  --color-surface:    #FFFFFF;   /* cards, modals */
+  --color-canvas:     #F2F3F7;   /* app background — cool oyster */
+  --color-canvas-2:   #F8F9FC;   /* inset / striped rows */
+  --color-hairline:   #E2E4EC;   /* card borders, table cell borders */
+  --color-divider:    #ECEEF4;   /* row dividers (lighter than hairline) */
+
+  /* Sidebar */
+  --color-sidebar:        #2A2F3D; /* dark soft-slate */
+  --color-sidebar-ink:    #E4E6EE;
+  --color-sidebar-muted:  #8E94A6;
+  --color-sidebar-hover:  #3A4054;
+
+  /* Brand / accent */
+  --color-primary:      #7A89B8;  /* dusty periwinkle — primary CTA, links, focus */
+  --color-primary-dark: #5E6E9D;  /* hover, pressed */
+  --color-primary-soft: #E5E9F4;  /* selected backgrounds, badge fill */
+  --color-accent:       #8C7AA8;  /* dusty mauve — sparingly */
+
+  /* Semantic */
+  --color-danger:       #B5524F;
+  --color-danger-soft:  #F5E2E0;
+  --color-warn:         #A88044;
+  --color-warn-soft:    #F2E8D5;
+  --color-success:      #6B8E7E;
+  --color-success-soft: #E2EDE7;
+
+  /* Type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  --font-head: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+
+  /* Radii */
+  --radius-sm: 5px;
+  --radius-md: 7px;     /* buttons, inputs */
+  --radius-lg: 10px;    /* cards */
+  --radius-xl: 14px;    /* modals, surface containers */
+
+  /* Shadows — keep subtle, never dramatic */
+  --shadow-card: 0 1px 0 rgba(30, 34, 48, 0.04), 0 0 0 0.5px var(--color-hairline);
+  --shadow-pop:  0 8px 24px rgba(30, 34, 48, 0.10), 0 0 0 0.5px var(--color-hairline);
+
+  /* Density — applied to row heights, table padding */
+  --row-h-compact: 40px;
+  --row-h-comfy:   48px;
+  --row-h-cozy:    56px;
+}
+
+/* Global body baseline */
+html, body {
+  background: var(--color-canvas);
+  color: var(--color-body);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

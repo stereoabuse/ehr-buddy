@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>EHR Buddy — Redesign</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Roboto+Slab:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      font-family: var(--font-body);
+      color: #1F3A36;
+      background: #D6D9E0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-feature-settings: 'cv11', 'ss01';
+    }
+    :root {
+      --font-body: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      --font-head: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    }
+    button { font-family: inherit; }
+    input, textarea, select { font-family: inherit; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); border: 2px solid transparent; background-clip: content-box; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <template id="__bundler_thumbnail">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <rect width="100" height="100" fill="#F2F3F7"/>
+      <rect x="14" y="14" width="22" height="72" rx="3" fill="#2A2F3D"/>
+      <rect x="40" y="14" width="46" height="10" rx="2" fill="#7A89B8"/>
+      <rect x="40" y="28" width="46" height="58" rx="3" fill="#FFFFFF" stroke="#E2E4EC" stroke-width="0.5"/>
+      <text x="50" y="62" font-family="-apple-system, sans-serif" font-size="14" font-weight="600" fill="#1E2230" text-anchor="middle">EHR</text>
+    </svg>
+  </template>
+  <div id="root"></div>
+
+  <script type="text/babel" src="data.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="shell.jsx"></script>
+  <script type="text/babel" src="screens.jsx"></script>
+  <script type="text/babel" src="chart.jsx"></script>
+  <script type="text/babel" src="note.jsx"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect } = React;
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "sidebarLayout": "wide",
+      "density": "compact",
+      "typePairing": "Sans (system)"
+    }/*EDITMODE-END*/;
+
+    function App() {
+      const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const [route, setRoute] = useState({ name: 'dashboard' });
+
+      // Apply font pairing
+      useEffect(() => {
+        const p = TYPE_PAIRINGS[tweaks.typePairing] || TYPE_PAIRINGS['Sans (system)'];
+        document.documentElement.style.setProperty('--font-body', p.body);
+        document.documentElement.style.setProperty('--font-head', p.head);
+      }, [tweaks.typePairing]);
+
+      function nav(name, params = {}) {
+        if (name === 'newSession') {
+          setRoute({ name: 'note', session: { clientId: 'c1', isNew: true } });
+        } else {
+          setRoute({ name, ...params });
+        }
+      }
+
+      function openSession(s) {
+        // From calendar/dashboard: open Jane Doe's note as a substantive sample
+        const useSample = s.clientId === 'c1';
+        setRoute({ name: 'note', session: { ...s, useSample } });
+      }
+
+      function openClient(id) {
+        setRoute({ name: 'client', clientId: id });
+      }
+
+      // Top bar config per screen
+      const topbarFor = () => {
+        if (route.name === 'calendar')
+          return { title: 'Calendar', breadcrumbs: null, right: null };
+        if (route.name === 'dashboard')
+          return { title: 'Dashboard', breadcrumbs: null, right: null };
+        if (route.name === 'clients')
+          return { title: 'Clients', breadcrumbs: null, right: null };
+        if (route.name === 'client') {
+          const c = CLIENTS.find((x) => x.id === route.clientId);
+          return { title: `${c.first} ${c.last}`, breadcrumbs: ['Clients', `${c.first} ${c.last}`], right: null };
+        }
+        if (route.name === 'note') {
+          const c = CLIENTS.find((x) => x.id === route.session.clientId);
+          return { title: 'Progress Note', breadcrumbs: ['Clients', `${c.first} ${c.last}`, 'Progress Note'], right: null };
+        }
+        return { title: 'EHR Buddy' };
+      };
+      const tb = topbarFor();
+
+      return (
+        <WindowFrame>
+          <Sidebar current={route.name === 'note' || route.name === 'client' ? 'clients' : route.name} onNav={nav} layout={tweaks.sidebarLayout} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: T.canvas }}>
+            <TopBar {...tb} />
+            <div style={{ flex: 1, overflow: 'auto', minHeight: 0, position: 'relative' }}>
+              {route.name === 'calendar' && <Calendar onOpenSession={openSession} density={tweaks.density} />}
+              {route.name === 'dashboard' && <Dashboard onNav={nav} onOpenSession={openSession} />}
+              {route.name === 'clients' && <ClientList onOpenClient={openClient} density={tweaks.density} />}
+              {route.name === 'client' && <ClientChart clientId={route.clientId} onOpenSession={openSession} onBack={() => nav('clients')} density={tweaks.density} />}
+              {route.name === 'note' && <ProgressNote session={route.session} onClose={() => nav(route.session.clientId ? 'client' : 'clients', { clientId: route.session.clientId })} density={tweaks.density} />}
+            </div>
+          </div>
+
+          <TweaksPanel title="Tweaks">
+            <TweakSection label="Layout" />
+            <TweakRadio label="Sidebar"
+              value={tweaks.sidebarLayout}
+              options={[{ value: 'wide', label: 'Wide' }, { value: 'icon', label: 'Icon' }, { value: 'hidden', label: 'Hidden' }]}
+              onChange={(v) => setTweak('sidebarLayout', v)} />
+            <TweakRadio label="Density"
+              value={tweaks.density}
+              options={[{ value: 'compact', label: 'Compact' }, { value: 'comfy', label: 'Comfy' }, { value: 'cozy', label: 'Cozy' }]}
+              onChange={(v) => setTweak('density', v)} />
+            <TweakSection label="Typography" />
+            <TweakSelect label="Pairing"
+              value={tweaks.typePairing}
+              options={Object.keys(TYPE_PAIRINGS)}
+              onChange={(v) => setTweak('typePairing', v)} />
+            <TweakSection label="Demo" />
+            <TweakButton label="Open Jane Doe's progress note" onClick={() => openSession({ clientId: 'c1', sessionId: 's1' })} />
+          </TweaksPanel>
+        </WindowFrame>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
