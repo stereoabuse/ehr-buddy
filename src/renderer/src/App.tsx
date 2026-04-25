@@ -3,6 +3,7 @@ import { HashRouter, Link, Route, Routes } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import ClientList from './pages/ClientList'
 import ClientDetail from './pages/ClientDetail'
+import Roster from './pages/Roster'
 import ClinicianProfile from './pages/ClinicianProfile'
 import SessionEditor from './pages/SessionEditor'
 import Reports from './pages/Reports'
@@ -26,8 +27,8 @@ export default function App() {
               <nav className="flex gap-5 text-sm">
                 <Link to="/" className="text-slate-600 hover:text-slate-900">Dashboard</Link>
                 <Link to="/clients" className="text-slate-600 hover:text-slate-900">Clients</Link>
+                <Link to="/roster" className="text-slate-600 hover:text-slate-900">Roster</Link>
                 <Link to="/reports" className="text-slate-600 hover:text-slate-900">Reports</Link>
-                <Link to="/activity" className="text-slate-600 hover:text-slate-900">Activity</Link>
                 <Link to="/profile" className="text-slate-600 hover:text-slate-900">Profile</Link>
                 <Link to="/settings" className="text-slate-600 hover:text-slate-900">Settings</Link>
               </nav>
@@ -38,6 +39,7 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/profile" element={<ClinicianProfile />} />
               <Route path="/clients" element={<ClientList />} />
+              <Route path="/roster" element={<Roster />} />
               <Route path="/clients/new" element={<ClientDetail />} />
               <Route path="/clients/:id" element={<ClientDetail />} />
               <Route path="/reports" element={<Reports />} />

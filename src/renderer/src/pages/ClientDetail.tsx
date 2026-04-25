@@ -8,6 +8,7 @@ import { Button } from '../components/Button'
 import { Field } from '../components/Field'
 import { Tabs } from '../components/Tabs'
 import { Disclosure } from '../components/Disclosure'
+import { PaidToggle } from '../components/PaidToggle'
 
 const EMPTY: ClientInput = {
   first_name: '', last_name: '', dob: null,
@@ -226,28 +227,20 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
                 const hasNote = !!s.note_body && s.note_body.replace(/Data:|Assessment:|Plan:/g, '').trim().length > 0
                 return (
                   <tr key={s.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3">
+                    <td className="whitespace-nowrap px-4 py-3">
                       <Link to={`/clients/${clientId}/sessions/${s.id}`} className="font-medium text-blue-700 hover:underline">{s.session_date}</Link>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{s.start_time}–{s.end_time}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">{s.start_time}–{s.end_time}</td>
                     <td className="px-4 py-3 font-mono text-sm text-slate-700">
                       {s.cpt_code}{cpt && <span className="ml-1 font-sans text-xs text-slate-500">{cpt.description}</span>}
                     </td>
-                    <td className="px-4 py-3 text-slate-700">${(s.fee_cents / 100).toFixed(2)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">${(s.fee_cents / 100).toFixed(2)}</td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => togglePaid.mutate({ id: s.id, paid: s.paid === 1 ? 0 : 1 })}
-                        disabled={togglePaid.isPending}
-                        className={`inline-block rounded-full px-3 py-1 text-xs font-medium transition ${
-                          s.paid === 1
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        } disabled:opacity-50`}
-                        title={s.paid === 1 ? 'Mark unpaid' : 'Mark paid'}
-                      >
-                        {s.paid === 1 ? 'Paid' : 'Unpaid'}
-                      </button>
+                      <PaidToggle
+                        paid={s.paid}
+                        onToggle={() => togglePaid.mutate({ id: s.id, paid: s.paid === 1 ? 0 : 1 })}
+                        pending={togglePaid.isPending}
+                      />
                     </td>
                     <td className="px-4 py-3 text-center">
                       {s.signed_at ? (

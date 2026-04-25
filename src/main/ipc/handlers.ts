@@ -126,6 +126,14 @@ function documentPath(storedFilename: string): string {
   return join(documentsDir(), storedFilename)
 }
 
+// Local date (YYYY-MM-DD) so "today" matches the clinician's wall clock.
+function localDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function clinicianSigner(): { name: string; credentials: string | null } {
   const c = clinicianRepo.get()
   if (!c) throw new Error('Set up your clinician profile before signing notes.')
@@ -152,6 +160,12 @@ export function registerIpcHandlers(): void {
 
   // ── clients ─────────────────────────────────────────────────
   ipcMain.handle(IPC.CLIENTS_LIST, () => clientsRepo.list())
+
+  ipcMain.handle(IPC.CLIENTS_ROSTER, () => {
+    const rows = clientsRepo.roster(localDateStr(new Date()))
+    audit('roster_view', 'client', null, { count: rows.length })
+    return rows
+  })
 
   ipcMain.handle(IPC.CLIENTS_GET, (_e, id: string) => {
     const row = clientsRepo.get(id) ?? null

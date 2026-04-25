@@ -1,6 +1,7 @@
 export const IPC = {
   PING: 'ping',
   CLIENTS_LIST: 'clients:list',
+  CLIENTS_ROSTER: 'clients:roster',
   CLIENTS_GET: 'clients:get',
   CLIENTS_UPSERT: 'clients:upsert',
   CLIENTS_DELETE: 'clients:delete',

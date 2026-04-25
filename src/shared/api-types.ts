@@ -8,6 +8,7 @@ import type {
   Clinician,
   ClinicianInput,
   DocumentUploadInput,
+  RosterRow,
   Session,
   SessionAmendment,
   SessionInput,
@@ -46,6 +47,7 @@ export interface Api {
   ping: () => Promise<PingResult>
   clients: {
     list: () => Promise<ClientListItem[]>
+    roster: () => Promise<RosterRow[]>
     get: (id: string) => Promise<Client | null>
     upsert: (input: ClientInput) => Promise<Client>
     delete: (id: string) => Promise<{ ok: boolean }>

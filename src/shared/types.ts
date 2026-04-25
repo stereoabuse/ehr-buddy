@@ -28,6 +28,20 @@ export interface ClientListItem extends Client {
   last_session_date: string | null
 }
 
+/** One row per active client for the at-a-glance roster view. */
+export interface RosterRow {
+  id: string
+  first_name: string
+  last_name: string
+  last_session_date: string | null
+  sessions_total: number
+  sessions_30d: number
+  unpaid_count: number
+  unpaid_cents: number
+  /** Past sessions whose note has not been signed yet. */
+  unsigned_count: number
+}
+
 export interface ClientInput {
   id?: string
   first_name: string
@@ -172,6 +186,7 @@ export type AuditAction =
   | 'client_create'
   | 'client_update'
   | 'client_delete'
+  | 'roster_view'
   | 'session_view'
   | 'session_create'
   | 'session_update'

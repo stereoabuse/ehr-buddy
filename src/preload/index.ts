@@ -6,6 +6,7 @@ const api: Api = {
   ping: () => ipcRenderer.invoke(IPC.PING),
   clients: {
     list: () => ipcRenderer.invoke(IPC.CLIENTS_LIST),
+    roster: () => ipcRenderer.invoke(IPC.CLIENTS_ROSTER),
     get: (id) => ipcRenderer.invoke(IPC.CLIENTS_GET, id),
     upsert: (input) => ipcRenderer.invoke(IPC.CLIENTS_UPSERT, input),
     delete: (id) => ipcRenderer.invoke(IPC.CLIENTS_DELETE, id)

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '../connection'
-import type { Client, ClientInput, ClientListItem } from '../../../shared/types'
+import type { Client, ClientInput, ClientListItem, RosterRow } from '../../../shared/types'
 
 const NULLABLE_FIELDS = [
   'dob',
@@ -84,6 +84,32 @@ export function upsert(input: ClientInput): Client {
   }
 
   return get(id)!
+}
+
+export function roster(today: string): RosterRow[] {
+  return getDb()
+    .prepare(
+      `SELECT
+         c.id,
+         c.first_name,
+         c.last_name,
+         (SELECT MAX(s.session_date) FROM sessions s WHERE s.client_id = c.id) AS last_session_date,
+         (SELECT COUNT(*) FROM sessions s WHERE s.client_id = c.id) AS sessions_total,
+         (SELECT COUNT(*) FROM sessions s
+            WHERE s.client_id = c.id
+              AND s.session_date >= date(?, '-30 days')
+              AND s.session_date <= ?) AS sessions_30d,
+         (SELECT COUNT(*) FROM sessions s
+            WHERE s.client_id = c.id AND s.paid = 0) AS unpaid_count,
+         (SELECT COALESCE(SUM(s.fee_cents), 0) FROM sessions s
+            WHERE s.client_id = c.id AND s.paid = 0) AS unpaid_cents,
+         (SELECT COUNT(*) FROM sessions s
+            WHERE s.client_id = c.id AND s.signed_at IS NULL AND s.session_date <= ?) AS unsigned_count
+       FROM clients c
+       WHERE c.active = 1
+       ORDER BY c.last_name COLLATE NOCASE, c.first_name COLLATE NOCASE`
+    )
+    .all(today, today, today) as RosterRow[]
 }
 
 export function softDelete(id: string): void {
