@@ -8,18 +8,19 @@
 
 ## What it does
 
-- **Client roster** -- name, contact info, insurance details, last-seen date and unsigned-note counts at a glance
-- **Diagnoses** -- ICD-10 autocomplete picker for F (mental/behavioral) and Z (encounter) codes
-- **Progress notes** -- structured fields (presentation, interventions, response, plan, risk) with CPT codes and fees; legacy DAP and free-text notes are preserved read-only
+- **Client roster** -- searchable, filterable list of clients with phone, primary diagnosis, last-seen date, unpaid balance, active status, and unsigned-note counts
+- **Client records** -- full contact info, emergency contact, and insurance details on the per-client detail page
+- **Diagnoses** -- ICD-10 autocomplete picker covering chapter F (mental, behavioral, neurodevelopmental) and chapter Z (factors influencing health status); refreshable from the NIH/NLM clinical-tables API
+- **Progress notes** -- structured form covering observations (cognitive functioning, affect, mood, interpersonal, functional status), current functioning, content discussed, interventions, treatment plan, plan, risk factors, medications, and recommendation, with CPT code and fee. Unsigned legacy DAP / free-text notes are migrated into the structured form on open; signed legacy notes remain read-only in their original format
 - **Sign off & lock notes** -- finalize a progress note; later changes are recorded as dated, append-only amendments
-- **Consent forms** -- upload signed PDFs (informed consent, ROI, intake, etc.) per client
+- **Per-client documents** -- upload PDFs or images (PDF, PNG, JPG, HEIC) tagged as consent, ROI, intake, or other; stored under the app's user-data folder
 - **Clinician profile** -- your credentials, NPI, tax ID, and default fee schedule
-- **Inline payment tracking** -- toggle paid status from the sessions list, plus a per-client Billing view of unpaid balance
+- **Inline payment tracking** -- paid toggle on each client's Sessions tab, plus a per-client Billing tab showing unpaid balance and bulk "mark all paid"
 - **Superbill PDFs** -- one-click generation for client reimbursement
-- **Income reports** -- filterable by date range, exported as PDF or CSV
-- **Tax CSV export** -- yearly totals formatted for your accountant
-- **Activity log** -- append-only record of every read, edit, and export of patient data (HIPAA §164.312(b)), surfaced under Settings
-- **One-click backup** -- copies the database to a location you choose
+- **Income summary (PDF)** -- date-ranged report with per-client totals, CPT breakdown, and grand totals
+- **Session detail (CSV)** -- date-ranged export with one row per session (date, client, CPT, ICD-10, fee, paid) plus a totals row, suitable for Excel or an accountant
+- **Activity log** -- append-only record of every read, edit, and export of patient data (HIPAA §164.312(b)), surfaced under Settings, exportable to CSV
+- **One-click backup** -- copies the SQLite database to a location you choose (the documents folder is separate; back it up alongside)
 
 There is no cloud sync, no user authentication, no payment processing, no insurance claim submission, and no third-party services of any kind. EHR Buddy never makes a network request. The app is designed for a single clinician on a single machine.
 
