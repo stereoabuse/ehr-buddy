@@ -8,6 +8,7 @@ import type {
   Clinician,
   ClinicianInput,
   DocumentUploadInput,
+  NoteFormat,
   RosterRow,
   Session,
   SessionAmendment,
@@ -35,7 +36,7 @@ export interface ReportArgs {
 export interface SignSessionArgs {
   id: string
   body: string
-  note_format: 'DAP' | 'FREE'
+  note_format: NoteFormat
 }
 
 export interface AddAmendmentArgs {

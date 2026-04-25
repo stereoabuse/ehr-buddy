@@ -93,6 +93,9 @@ export function roster(today: string): RosterRow[] {
          c.id,
          c.first_name,
          c.last_name,
+         c.dob,
+         c.phone,
+         c.active,
          (SELECT MAX(s.session_date) FROM sessions s WHERE s.client_id = c.id) AS last_session_date,
          (SELECT COUNT(*) FROM sessions s WHERE s.client_id = c.id) AS sessions_total,
          (SELECT COUNT(*) FROM sessions s
@@ -104,10 +107,13 @@ export function roster(today: string): RosterRow[] {
          (SELECT COALESCE(SUM(s.fee_cents), 0) FROM sessions s
             WHERE s.client_id = c.id AND s.paid = 0) AS unpaid_cents,
          (SELECT COUNT(*) FROM sessions s
-            WHERE s.client_id = c.id AND s.signed_at IS NULL AND s.session_date <= ?) AS unsigned_count
+            WHERE s.client_id = c.id AND s.signed_at IS NULL AND s.session_date <= ?) AS unsigned_count,
+         (SELECT s.icd10_codes FROM sessions s
+            WHERE s.client_id = c.id
+            ORDER BY s.session_date DESC, s.start_time DESC
+            LIMIT 1) AS last_dx
        FROM clients c
-       WHERE c.active = 1
-       ORDER BY c.last_name COLLATE NOCASE, c.first_name COLLATE NOCASE`
+       ORDER BY c.active DESC, c.last_name COLLATE NOCASE, c.first_name COLLATE NOCASE`
     )
     .all(today, today, today) as RosterRow[]
 }

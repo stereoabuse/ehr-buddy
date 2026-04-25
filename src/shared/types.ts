@@ -28,11 +28,14 @@ export interface ClientListItem extends Client {
   last_session_date: string | null
 }
 
-/** One row per active client for the at-a-glance roster view. */
+/** One row per client for the Clients list. Includes computed aggregates. */
 export interface RosterRow {
   id: string
   first_name: string
   last_name: string
+  dob: string | null
+  phone: string | null
+  active: number
   last_session_date: string | null
   sessions_total: number
   sessions_30d: number
@@ -40,6 +43,8 @@ export interface RosterRow {
   unpaid_cents: number
   /** Past sessions whose note has not been signed yet. */
   unsigned_count: number
+  /** First ICD-10 from the most recent session, if any. */
+  last_dx: string | null
 }
 
 export interface ClientInput {
@@ -102,7 +107,7 @@ export interface ClinicianInput {
   default_fees?: Record<string, number> | null
 }
 
-export type NoteFormat = 'DAP' | 'FREE'
+export type NoteFormat = 'DAP' | 'FREE' | 'STRUCTURED'
 
 export interface Session {
   id: string

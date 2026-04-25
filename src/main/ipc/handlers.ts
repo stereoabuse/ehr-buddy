@@ -64,7 +64,7 @@ const sessionUpsertSchema = z.object({
   icd10_codes: z.string().nullable().optional(),
   fee_cents: z.number().int().min(0),
   paid: z.number().int().min(0).max(1).optional(),
-  note_format: z.enum(['DAP', 'FREE']).optional(),
+  note_format: z.enum(['DAP', 'FREE', 'STRUCTURED']).optional(),
   note_body: z.string().nullable().optional()
 })
 
@@ -76,7 +76,7 @@ const setPaidSchema = z.object({
 const signSchema = z.object({
   id: z.string().min(1),
   body: z.string().trim().min(1, 'Cannot sign an empty note'),
-  note_format: z.enum(['DAP', 'FREE'])
+  note_format: z.enum(['DAP', 'FREE', 'STRUCTURED'])
 })
 
 const addAmendmentSchema = z.object({

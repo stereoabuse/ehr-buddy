@@ -1,12 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { NoteFormat, Session, SessionInput } from '@shared/types'
+import type { Session, SessionInput } from '@shared/types'
 import { CPT_CODES } from '@shared/cpt-codes'
-import { Button } from '../components/Button'
-import { Field } from '../components/Field'
-
-const DAP_SCAFFOLDING = 'Data:\n\n\nAssessment:\n\n\nPlan:\n'
+import { Btn } from '../components/Btn'
+import { Card } from '../components/Card'
+import { Pill } from '../components/Pill'
+import { Avatar } from '../components/Avatar'
+import { Icon } from '../components/Icon'
+import { initialsOf } from '../lib/format'
+import { avatarColorFor } from '../lib/avatar'
+import {
+  EMPTY_STRUCTURED_NOTE,
+  INTERVENTION_OPTIONS,
+  OBSERVATION_OPTIONS,
+  RECOMMENDATION_OPTIONS,
+  RISK_FACTOR_OPTIONS,
+  fromLegacyBody,
+  parseStructuredNote,
+  serializeStructuredNote,
+  type Recommendation,
+  type StructuredNote
+} from '../lib/structured-note'
 
 function calcDuration(start: string, end: string): number | null {
   if (!start || !end) return null
@@ -19,14 +34,15 @@ function calcDuration(start: string, end: string): number | null {
 
 function todayLocal(): string {
   const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function formatSignedAt(iso: string): string {
-  return new Date(iso).toLocaleString()
+function formatTimestamp(iso: string): string {
+  return new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+function formatLongTimestamp(iso: string): string {
+  return new Date(iso).toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })
 }
 
 export default function SessionEditor() {
@@ -36,12 +52,25 @@ export default function SessionEditor() {
   const qc = useQueryClient()
 
   const clinicianQuery = useQuery({ queryKey: ['clinician'], queryFn: () => window.api.clinician.get() })
-  const clientQuery = useQuery({ queryKey: ['clients', clientId], queryFn: () => window.api.clients.get(clientId!), enabled: !!clientId })
-  const sessionQuery = useQuery({ queryKey: ['sessions', sessionId], queryFn: () => window.api.sessions.get(sessionId!), enabled: !isNew })
+  const clientQuery = useQuery({
+    queryKey: ['clients', clientId],
+    queryFn: () => window.api.clients.get(clientId!),
+    enabled: !!clientId
+  })
+  const sessionQuery = useQuery({
+    queryKey: ['sessions', sessionId],
+    queryFn: () => window.api.sessions.get(sessionId!),
+    enabled: !isNew
+  })
   const amendmentsQuery = useQuery({
     queryKey: ['sessions', sessionId, 'amendments'],
     queryFn: () => window.api.sessions.listAmendments(sessionId!),
     enabled: !isNew
+  })
+  const lastSessionQuery = useQuery({
+    queryKey: ['sessions', 'byClient', clientId],
+    queryFn: () => window.api.sessions.listByClient(clientId!),
+    enabled: !!clientId
   })
 
   const defaultFees = useMemo<Record<string, number>>(() => {
@@ -57,43 +86,95 @@ export default function SessionEditor() {
     icd10_codes: null,
     fee_cents: 0,
     paid: 0,
-    note_format: 'DAP',
-    note_body: DAP_SCAFFOLDING
+    note_format: 'STRUCTURED',
+    note_body: serializeStructuredNote(EMPTY_STRUCTURED_NOTE)
   })
   const [feeDollarStr, setFeeDollarStr] = useState('0')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [amendmentDraft, setAmendmentDraft] = useState('')
+  const [showAmendForm, setShowAmendForm] = useState(false)
+  const [showSignModal, setShowSignModal] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
   const [amendError, setAmendError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<Date | null>(null)
 
+  // Hydrate from server. Auto-converts unsigned legacy DAP/FREE → STRUCTURED
+  // (legacy body becomes Overall Notes). Signed legacy notes stay as-is and
+  // render in read-only legacy mode.
   useEffect(() => {
-    if (sessionQuery.data) {
+    const s = sessionQuery.data
+    if (!s) return
+    const isLegacy = s.note_format !== 'STRUCTURED'
+    const isSignedNote = !!s.signed_at
+    if (isLegacy && !isSignedNote) {
+      const migrated = fromLegacyBody(s.note_body)
       setForm({
-        client_id: sessionQuery.data.client_id,
-        session_date: sessionQuery.data.session_date,
-        start_time: sessionQuery.data.start_time,
-        end_time: sessionQuery.data.end_time,
-        cpt_code: sessionQuery.data.cpt_code,
-        icd10_codes: sessionQuery.data.icd10_codes,
-        fee_cents: sessionQuery.data.fee_cents,
-        paid: sessionQuery.data.paid,
-        note_format: sessionQuery.data.note_format,
-        note_body: sessionQuery.data.note_body,
-        id: sessionQuery.data.id
+        client_id: s.client_id,
+        session_date: s.session_date,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        cpt_code: s.cpt_code,
+        icd10_codes: s.icd10_codes,
+        fee_cents: s.fee_cents,
+        paid: s.paid,
+        note_format: 'STRUCTURED',
+        note_body: serializeStructuredNote(migrated),
+        id: s.id
       })
-      setFeeDollarStr((sessionQuery.data.fee_cents / 100).toString())
+    } else {
+      setForm({
+        client_id: s.client_id,
+        session_date: s.session_date,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        cpt_code: s.cpt_code,
+        icd10_codes: s.icd10_codes,
+        fee_cents: s.fee_cents,
+        paid: s.paid,
+        note_format: s.note_format,
+        note_body: s.note_body,
+        id: s.id
+      })
     }
+    setFeeDollarStr((s.fee_cents / 100).toString())
   }, [sessionQuery.data])
 
   const session: Session | undefined = sessionQuery.data ?? undefined
   const isSigned = !!session?.signed_at
+  const isLegacySigned = isSigned && session?.note_format !== 'STRUCTURED'
   const duration = useMemo(() => calcDuration(form.start_time, form.end_time), [form.start_time, form.end_time])
+  const cpt = useMemo(() => CPT_CODES.find((c) => c.code === form.cpt_code), [form.cpt_code])
 
-  function updateForm<K extends keyof SessionInput>(key: K, value: SessionInput[K]) {
+  const note = useMemo<StructuredNote>(
+    () => (form.note_format === 'STRUCTURED' ? parseStructuredNote(form.note_body) : EMPTY_STRUCTURED_NOTE),
+    [form.note_format, form.note_body]
+  )
+
+  function updateNote(partial: Partial<StructuredNote>): void {
+    const next = { ...note, ...partial }
+    setForm((f) => ({ ...f, note_body: serializeStructuredNote(next) }))
+  }
+
+  function updateObservation(field: keyof StructuredNote['observations'], value: string): void {
+    updateNote({ observations: { ...note.observations, [field]: value } })
+  }
+
+  function toggleArrayValue(list: string[], id: string): string[] {
+    return list.includes(id) ? list.filter((x) => x !== id) : [...list, id]
+  }
+
+  const lastSession = useMemo(() => {
+    const list = lastSessionQuery.data ?? []
+    return list
+      .filter((s) => s.id !== sessionId)
+      .sort((a, b) => b.session_date.localeCompare(a.session_date))[0]
+  }, [lastSessionQuery.data, sessionId])
+
+  function updateForm<K extends keyof SessionInput>(key: K, value: SessionInput[K]): void {
     setForm((f) => ({ ...f, [key]: value }))
   }
 
-  function handleCptChange(code: string) {
+  function handleCptChange(code: string): void {
     setForm((f) => {
       const defaultFee = defaultFees[code]
       if (f.fee_cents === 0 && defaultFee != null) {
@@ -104,32 +185,26 @@ export default function SessionEditor() {
     })
   }
 
-  function handleNoteFormatChange(format: NoteFormat) {
-    setForm((f) => {
-      const note_body = format === 'DAP' && (!f.note_body || f.note_body.trim() === '') ? DAP_SCAFFOLDING : f.note_body
-      return { ...f, note_format: format, note_body }
-    })
-  }
-
   const save = useMutation({
     mutationFn: (input: SessionInput) => window.api.sessions.upsert(input),
     onSuccess: () => {
+      setSavedAt(new Date())
       qc.invalidateQueries({ queryKey: ['sessions'] })
     }
   })
 
   const sign = useMutation({
     mutationFn: () => {
-      const body = form.note_body ?? ''
       if (!sessionId) throw new Error('Save the session before signing.')
       return window.api.sessions.sign({
         id: sessionId,
-        body,
-        note_format: form.note_format ?? 'DAP'
+        body: form.note_body ?? '',
+        note_format: form.note_format ?? 'STRUCTURED'
       })
     },
     onSuccess: () => {
       setSignError(null)
+      setShowSignModal(false)
       qc.invalidateQueries({ queryKey: ['sessions'] })
     },
     onError: (err) => setSignError(String(err))
@@ -141,6 +216,7 @@ export default function SessionEditor() {
     onSuccess: () => {
       setAmendmentDraft('')
       setAmendError(null)
+      setShowAmendForm(false)
       qc.invalidateQueries({ queryKey: ['sessions', sessionId, 'amendments'] })
     },
     onError: (err) => setAmendError(String(err))
@@ -165,15 +241,13 @@ export default function SessionEditor() {
     return Object.keys(errs).length === 0
   }
 
-  function doSave(andClose: boolean) {
+  function doSave(andClose: boolean): void {
     if (!validate()) return
     const d = parseFloat(feeDollarStr)
     const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
     save.mutate({ ...form, fee_cents }, {
       onSuccess: (saved) => {
         if (isNew) {
-          // Move into edit mode for the saved session so subsequent saves /
-          // sign-off operate on the persisted row.
           navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true })
         } else if (andClose) {
           navigate(`/clients/${clientId}`)
@@ -182,44 +256,59 @@ export default function SessionEditor() {
     })
   }
 
-  async function doSign() {
+  async function doSign(): Promise<void> {
     if (!validate()) return
-    if (isNew) {
-      // Persist first, then sign in the same flow.
-      const d = parseFloat(feeDollarStr)
-      const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
-      try {
+    const d = parseFloat(feeDollarStr)
+    const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
+    try {
+      if (isNew) {
         const saved = await save.mutateAsync({ ...form, fee_cents })
         navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true })
         await window.api.sessions.sign({
           id: saved.id,
           body: form.note_body ?? '',
-          note_format: form.note_format ?? 'DAP'
+          note_format: form.note_format ?? 'STRUCTURED'
         })
         qc.invalidateQueries({ queryKey: ['sessions'] })
         setSignError(null)
-      } catch (err) {
-        setSignError(String(err))
+        setShowSignModal(false)
+      } else {
+        await save.mutateAsync({ ...form, fee_cents })
+        await sign.mutateAsync()
       }
-      return
-    }
-    // Existing session — make sure latest body is persisted before signing.
-    const d = parseFloat(feeDollarStr)
-    const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
-    try {
-      await save.mutateAsync({ ...form, fee_cents })
-      await sign.mutateAsync()
     } catch (err) {
       setSignError(String(err))
     }
   }
 
-  function handleDelete() {
+  function copyFromLastNote(): void {
+    if (!lastSession) return
+    if (lastSession.note_format === 'STRUCTURED') {
+      const last = parseStructuredNote(lastSession.note_body)
+      // Replace, but keep the user's draft warning if anything's been entered.
+      const noteHasAnything =
+        note.overall_notes ||
+        note.plan ||
+        note.medications ||
+        note.content_discussed ||
+        note.current_functioning
+      if (noteHasAnything && !confirm("Replace the current note with the previous session's structured note?")) return
+      setForm((f) => ({ ...f, note_body: serializeStructuredNote(last) }))
+    } else {
+      // Legacy: drop the body into Overall Notes.
+      const overall = (lastSession.note_body ?? '').trim()
+      if (!overall) return
+      if (note.overall_notes && !confirm('Replace the current Overall Notes with the previous session?')) return
+      updateNote({ overall_notes: overall })
+    }
+  }
+
+  function handleDelete(): void {
     if (!sessionId) return
     if (confirm('Delete this session? This cannot be undone.')) del.mutate(sessionId)
   }
 
-  function handleAddAmendment() {
+  function handleAddAmendment(): void {
     const trimmed = amendmentDraft.trim()
     if (!trimmed) {
       setAmendError('Amendment cannot be empty')
@@ -228,198 +317,868 @@ export default function SessionEditor() {
     addAmendment.mutate(trimmed)
   }
 
-  const clientName = clientQuery.data ? `${clientQuery.data.first_name} ${clientQuery.data.last_name}` : 'client'
+  if (!isNew && sessionQuery.isLoading) {
+    return <div className="px-7 py-10 text-center text-base text-muted">Loading…</div>
+  }
 
-  if (!isNew && sessionQuery.isLoading) return <p className="text-slate-500">Loading…</p>
+  const client = clientQuery.data
+  const clientName = client ? `${client.first_name} ${client.last_name}` : 'Client'
+  const hasAmendments = (amendmentsQuery.data ?? []).length > 0
+  const formatLabel = isLegacySigned ? (session!.note_format === 'DAP' ? 'DAP (legacy)' : 'Free text (legacy)') : 'Structured'
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <button type="button" onClick={() => navigate(`/clients/${clientId}`)} className="text-sm text-blue-700 hover:underline">
-          ← Back to {clientName}
+    <div className="-mx-6 -my-6 flex h-[calc(100vh-3.5rem)] flex-col bg-canvas">
+      {/* Sticky header */}
+      <div
+        className="flex flex-shrink-0 items-center gap-4 bg-surface px-7 py-3.5"
+        style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
+      >
+        <button
+          type="button"
+          onClick={() => navigate(`/clients/${clientId}`)}
+          className="inline-flex items-center gap-1 border-0 bg-transparent p-0 text-sm font-semibold text-primary hover:text-primary-dark"
+        >
+          <Icon name="chevL" size={12} /> {clientName}
         </button>
-        <h2 className="mt-2 text-3xl font-semibold">{isNew ? 'New Session' : 'Edit Session'}</h2>
+        <div className="h-[18px] w-px" style={{ background: 'var(--color-hairline)' }} />
+        <div>
+          <div
+            className="text-lg font-semibold text-ink"
+            style={{ fontFamily: 'var(--font-head)' }}
+          >
+            {isNew ? 'New session note' : 'Progress note'}
+          </div>
+          <div className="mt-px text-sm text-muted">
+            {form.session_date || '—'}
+            {form.start_time && form.end_time ? ` · ${form.start_time}–${form.end_time}` : ''}
+            {cpt ? ` · ${cpt.description}` : ''}
+            {' · '}{formatLabel}
+          </div>
+        </div>
+        <div className="flex-1" />
+
+        <SaveStatus isSigned={isSigned} signedAt={session?.signed_at ?? null} savedAt={savedAt} pending={save.isPending} />
+
+        <Btn variant="secondary" onClick={() => navigate(`/clients/${clientId}`)}>
+          Close
+        </Btn>
+        {!isSigned && (
+          <Btn variant="secondary" onClick={() => doSave(false)} disabled={save.isPending}>
+            {save.isPending ? 'Saving…' : 'Save Draft'}
+          </Btn>
+        )}
+        {!isSigned && (
+          <Btn icon="lock" onClick={() => setShowSignModal(true)} disabled={save.isPending || sign.isPending}>
+            Sign &amp; Lock
+          </Btn>
+        )}
+        {isSigned && !showAmendForm && (
+          <Btn variant="secondary" icon="edit" onClick={() => setShowAmendForm(true)}>
+            Add Amendment
+          </Btn>
+        )}
       </div>
 
-      {isSigned && session && (
-        <div className="rounded-lg border border-green-300 bg-green-50 p-4">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 text-green-700">✓</span>
-            <div>
-              <p className="font-semibold text-green-900">
-                Signed by {session.signed_by_name}
-                {session.signed_by_credentials ? `, ${session.signed_by_credentials}` : ''}
-              </p>
-              <p className="text-sm text-green-800">
-                on {formatSignedAt(session.signed_at!)} — clinical fields are locked. Add an amendment to record changes.
-              </p>
-            </div>
+      {/* Locked banner */}
+      {isSigned && session?.signed_at && (
+        <div
+          className="flex flex-shrink-0 items-center gap-2.5 bg-success-soft px-7 py-3"
+          style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
+        >
+          <Icon name="lock" size={16} className="text-success" />
+          <div className="flex-1 text-base text-ink">
+            <strong className="text-success">
+              Signed by {session.signed_by_name}
+              {session.signed_by_credentials ? `, ${session.signed_by_credentials}` : ''}
+            </strong>
+            <span className="text-body">
+              {' '}on {formatLongTimestamp(session.signed_at)}. Clinical fields are locked. Use amendments to record corrections.
+            </span>
           </div>
         </div>
       )}
 
-      {/* ── When ──────────────────────────────────── */}
-      <fieldset className="rounded-lg border border-slate-200 bg-white p-6" disabled={isSigned}>
-        <legend className="px-2 text-sm font-semibold uppercase tracking-wide text-slate-600">When</legend>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Date" type="date" value={form.session_date} onChange={(e) => updateForm('session_date', e.target.value)} error={errors.session_date} required />
-          <Field label="Start time" type="time" value={form.start_time} onChange={(e) => updateForm('start_time', e.target.value)} error={errors.start_time} required />
-          <Field label="End time" type="time" value={form.end_time} onChange={(e) => updateForm('end_time', e.target.value)} error={errors.end_time} required />
-        </div>
-        <p className="mt-3 text-sm text-slate-600">
-          Duration: {duration != null ? <span className="font-semibold">{duration} min</span> : <span className="text-slate-400">—</span>}
-        </p>
-      </fieldset>
+      {/* Body */}
+      <div className="flex-1 overflow-auto px-7 py-7">
+        <div
+          className="mx-auto grid max-w-[1180px] items-start gap-6"
+          style={{ gridTemplateColumns: '1fr 320px' }}
+        >
+          {/* LEFT — note */}
+          <div className="flex flex-col gap-4">
+            {isLegacySigned ? (
+              <LegacyNoteCard format={session!.note_format} body={session!.note_body ?? ''} />
+            ) : (
+              <StructuredNoteForm
+                note={note}
+                signed={isSigned}
+                onChangeText={(field, value) => updateNote({ [field]: value } as Partial<StructuredNote>)}
+                onChangeObservation={updateObservation}
+                onToggleRiskFactor={(id) => updateNote({ risk_factors: toggleArrayValue(note.risk_factors, id) })}
+                onChangeRiskFactorOther={(value) => updateNote({ risk_factors_other: value })}
+                onToggleIntervention={(id) =>
+                  updateNote({ interventions: toggleArrayValue(note.interventions, id) })
+                }
+                onChangeInterventionOther={(value) => updateNote({ interventions_other: value })}
+                onChangeTreatmentPlan={(field, value) =>
+                  updateNote({ treatment_plan: { ...note.treatment_plan, [field]: value } })
+                }
+                onChangeRecommendation={(value) => updateNote({ recommendation: value })}
+              />
+            )}
 
-      {/* ── Note ──────────────────────────────────── */}
-      <fieldset className="rounded-lg border border-slate-200 bg-white p-6">
-        <legend className="px-2 text-sm font-semibold uppercase tracking-wide text-slate-600">Session Note</legend>
-        <div className="mb-3 flex gap-2">
-          {(['DAP', 'FREE'] as const).map((fmt) => (
-            <button
-              key={fmt}
-              type="button"
-              onClick={() => handleNoteFormatChange(fmt)}
-              disabled={isSigned}
-              className={`px-4 py-2 rounded-md border text-sm font-medium ${
-                form.note_format === fmt
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-              } disabled:opacity-60 disabled:cursor-not-allowed`}
+            {/* Amendments */}
+            {isSigned && (hasAmendments || showAmendForm) && (
+              <Card padding={0}>
+                <div
+                  className="flex items-center gap-2 px-5 py-3.5"
+                  style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
+                >
+                  <Icon name="edit" size={14} className="text-muted" />
+                  <h3
+                    className="m-0 text-md font-semibold text-ink"
+                    style={{ fontFamily: 'var(--font-head)' }}
+                  >
+                    Amendments
+                  </h3>
+                  <Pill tone="neutral">{amendmentsQuery.data?.length ?? 0}</Pill>
+                </div>
+                <div>
+                  {(amendmentsQuery.data ?? []).map((a, i, arr) => (
+                    <div
+                      key={a.id}
+                      className="px-5 py-3.5"
+                      style={{ borderBottom: i < arr.length - 1 || showAmendForm ? '0.5px solid var(--color-divider)' : 'none' }}
+                    >
+                      <div className="mb-1.5 text-[11.5px] text-muted">
+                        Amendment #{i + 1} · Signed by{' '}
+                        <strong className="text-body">
+                          {a.signed_by_name}
+                          {a.signed_by_credentials ? `, ${a.signed_by_credentials}` : ''}
+                        </strong>{' '}
+                        on {formatTimestamp(a.signed_at)}
+                      </div>
+                      <p className="m-0 whitespace-pre-wrap text-base leading-[1.55] text-ink">{a.body}</p>
+                    </div>
+                  ))}
+                  {showAmendForm && (
+                    <div className="bg-canvas-2 px-5 py-3.5">
+                      <label className="mb-1.5 block text-[11.5px] font-semibold uppercase tracking-[0.4px] text-muted">
+                        New amendment
+                      </label>
+                      <textarea
+                        value={amendmentDraft}
+                        onChange={(e) => setAmendmentDraft(e.target.value)}
+                        rows={4}
+                        placeholder="Describe the correction or addition. This will be appended to the note with your signature and timestamp."
+                        className="block w-full resize-y rounded-md bg-surface p-3 text-base leading-[1.55] text-ink outline-none"
+                        style={{ border: '0.5px solid var(--color-hairline)' }}
+                      />
+                      {amendError && <p className="mt-2 text-sm text-danger">{amendError}</p>}
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <Btn
+                          icon="lock"
+                          onClick={handleAddAmendment}
+                          disabled={!amendmentDraft.trim() || addAmendment.isPending}
+                        >
+                          {addAmendment.isPending ? 'Signing…' : 'Sign Amendment'}
+                        </Btn>
+                        <Btn
+                          variant="ghost"
+                          onClick={() => {
+                            setShowAmendForm(false)
+                            setAmendmentDraft('')
+                            setAmendError(null)
+                          }}
+                        >
+                          Cancel
+                        </Btn>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {save.error && <p className="text-sm text-danger">Save failed: {String(save.error)}</p>}
+            {signError && <p className="text-sm text-danger">Sign failed: {signError}</p>}
+
+            {!isNew && !isSigned && (
+              <div className="pt-2">
+                <Btn type="button" variant="danger" onClick={handleDelete}>
+                  Delete session
+                </Btn>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT — sticky sidebar */}
+          <div className="sticky top-0 flex flex-col gap-4">
+            <Card padding={0}>
+              <SectionHeader>Session details</SectionHeader>
+              <div className="flex flex-col gap-3 p-4">
+                <SmallInput
+                  label="Date"
+                  type="date"
+                  value={form.session_date}
+                  onChange={(v) => updateForm('session_date', v)}
+                  disabled={isSigned}
+                  error={errors.session_date}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <SmallInput
+                    label="Start"
+                    type="time"
+                    value={form.start_time}
+                    onChange={(v) => updateForm('start_time', v)}
+                    disabled={isSigned}
+                    error={errors.start_time}
+                  />
+                  <SmallInput
+                    label="End"
+                    type="time"
+                    value={form.end_time}
+                    onChange={(v) => updateForm('end_time', v)}
+                    disabled={isSigned}
+                    error={errors.end_time}
+                  />
+                </div>
+                <div className="-mt-1 text-[11.5px] text-muted">
+                  Duration: <strong className="text-body">{duration ? `${duration} min` : '—'}</strong>
+                </div>
+              </div>
+            </Card>
+
+            <Card padding={0}>
+              <SectionHeader>Diagnoses &amp; billing</SectionHeader>
+              <div className="flex flex-col gap-3 p-4">
+                <SmallSelect
+                  label="CPT Code"
+                  value={form.cpt_code}
+                  onChange={handleCptChange}
+                  disabled={isSigned}
+                  options={[
+                    { value: '', label: 'Select…' },
+                    ...CPT_CODES.map((c) => ({ value: c.code, label: `${c.code} — ${c.description}` }))
+                  ]}
+                  error={errors.cpt_code}
+                />
+                <SmallInput
+                  label="ICD-10 codes"
+                  value={form.icd10_codes ?? ''}
+                  onChange={(v) => updateForm('icd10_codes', v || null)}
+                  disabled={isSigned}
+                  placeholder="F41.1, F32.1"
+                />
+                <SmallInput
+                  label="Fee"
+                  type="number"
+                  prefix="$"
+                  value={feeDollarStr}
+                  onChange={(v) => setFeeDollarStr(v)}
+                  disabled={false}
+                />
+                <label className={`flex items-center gap-2 text-base text-body ${isSigned ? 'cursor-default' : 'cursor-pointer'}`}>
+                  <input
+                    type="checkbox"
+                    checked={form.paid === 1}
+                    onChange={(e) => updateForm('paid', e.target.checked ? 1 : 0)}
+                    disabled={isSigned}
+                  />
+                  Mark as paid
+                </label>
+              </div>
+            </Card>
+
+            {client && (
+              <Card padding={0}>
+                <SectionHeader>Client</SectionHeader>
+                <div className="p-4">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/clients/${clientId}`)}
+                    className="mb-3 flex w-full items-center gap-3 rounded text-left hover:opacity-90"
+                  >
+                    <Avatar
+                      initials={initialsOf(client.first_name, client.last_name)}
+                      color={avatarColorFor(client.id)}
+                      size={40}
+                    />
+                    <div>
+                      <div className="text-md font-semibold text-ink">
+                        {client.first_name} {client.last_name}
+                      </div>
+                      {client.dob && <div className="text-[11.5px] text-muted">DOB {client.dob}</div>}
+                    </div>
+                  </button>
+                  <div className="text-sm leading-[1.6] text-body">
+                    {form.icd10_codes && <SnapshotRow label="Dx" value={form.icd10_codes} />}
+                    {client.phone && <SnapshotRow label="Phone" value={client.phone} />}
+                    {lastSession && <SnapshotRow label="Last" value={lastSession.session_date} />}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {!isSigned && lastSession && (
+              <Card>
+                <h3 className="mb-2 text-[11.5px] font-semibold uppercase tracking-[0.5px] text-muted">
+                  Quick actions
+                </h3>
+                <button
+                  type="button"
+                  onClick={copyFromLastNote}
+                  className="flex w-full items-center gap-2 border-0 bg-transparent py-2 text-left text-base font-semibold text-primary hover:text-primary-dark"
+                >
+                  <Icon name="paperclip" size={13} />
+                  Copy from last note ({lastSession.session_date})
+                </button>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Sign & Lock modal */}
+      {showSignModal && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(31,58,54,0.32)' }}
+          onClick={() => setShowSignModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-[460px] overflow-hidden rounded-xl bg-surface"
+            style={{ boxShadow: '0 30px 80px rgba(0,0,0,0.3)' }}
+          >
+            <div
+              className="flex items-center gap-3 px-6 py-5"
+              style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
             >
-              {fmt === 'DAP' ? 'DAP' : 'Free form'}
-            </button>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-soft">
+                <Icon name="lock" size={18} className="text-primary" />
+              </div>
+              <h3
+                className="m-0 text-lg font-semibold text-ink"
+                style={{ fontFamily: 'var(--font-head)' }}
+              >
+                Sign and lock note?
+              </h3>
+            </div>
+            <div className="px-6 py-6">
+              <p className="m-0 mb-3.5 text-base leading-[1.6] text-body">
+                You're about to finalize this progress note for <strong>{clientName}</strong> ({form.session_date}). Once signed:
+              </p>
+              <ul className="m-0 mb-4 list-disc pl-5 text-base leading-[1.7] text-body">
+                <li>Clinical fields will be locked</li>
+                <li>Changes can only be made via dated, append-only amendments</li>
+                <li>Your signature, credentials, and timestamp will be recorded</li>
+              </ul>
+              {clinicianQuery.data ? (
+                <div className="rounded-md bg-canvas-2 p-3 text-sm text-body">
+                  Signing as{' '}
+                  <strong className="text-ink">
+                    {clinicianQuery.data.full_name}
+                    {clinicianQuery.data.credentials ? `, ${clinicianQuery.data.credentials}` : ''}
+                  </strong>
+                  {clinicianQuery.data.npi ? ` · NPI ${clinicianQuery.data.npi}` : ''}
+                </div>
+              ) : (
+                <div className="rounded-md bg-warn-soft p-3 text-sm text-warn">
+                  Set up your clinician profile before signing.
+                </div>
+              )}
+              {signError && <p className="mt-3 text-sm text-danger">{signError}</p>}
+            </div>
+            <div
+              className="flex justify-end gap-2.5 bg-canvas-2 px-6 py-3.5"
+              style={{ borderTop: '0.5px solid var(--color-hairline)' }}
+            >
+              <Btn variant="secondary" onClick={() => setShowSignModal(false)}>
+                Cancel
+              </Btn>
+              <Btn icon="lock" onClick={doSign} disabled={!clinicianQuery.data || sign.isPending || save.isPending}>
+                {sign.isPending || save.isPending ? 'Signing…' : 'Sign & Lock'}
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── Structured form ───────────────────────────────────────────── */
+
+interface StructuredFormProps {
+  note: StructuredNote
+  signed: boolean
+  onChangeText: (field: 'overall_notes' | 'medications' | 'current_functioning' | 'content_discussed' | 'plan', value: string) => void
+  onChangeObservation: (field: keyof StructuredNote['observations'], value: string) => void
+  onToggleRiskFactor: (id: string) => void
+  onChangeRiskFactorOther: (value: string) => void
+  onToggleIntervention: (id: string) => void
+  onChangeInterventionOther: (value: string) => void
+  onChangeTreatmentPlan: (field: keyof StructuredNote['treatment_plan'], value: string) => void
+  onChangeRecommendation: (value: Recommendation) => void
+}
+
+function StructuredNoteForm({
+  note,
+  signed,
+  onChangeText,
+  onChangeObservation,
+  onToggleRiskFactor,
+  onChangeRiskFactorOther,
+  onToggleIntervention,
+  onChangeInterventionOther,
+  onChangeTreatmentPlan,
+  onChangeRecommendation
+}: StructuredFormProps) {
+  const riskOtherChecked = note.risk_factors.includes('other')
+  const interventionsOtherChecked = note.interventions.includes('other')
+
+  return (
+    <div className="flex flex-col gap-4">
+      <NoteCard>
+        <FieldLabel>Overall Notes</FieldLabel>
+        <TextArea value={note.overall_notes} onChange={(v) => onChangeText('overall_notes', v)} signed={signed} />
+      </NoteCard>
+
+      <NoteCard>
+        <SectionTitle>Observations</SectionTitle>
+        <div className="flex flex-col gap-3">
+          <SelectField
+            label="Cognitive Functioning"
+            value={note.observations.cognitive_functioning}
+            options={OBSERVATION_OPTIONS.cognitive_functioning}
+            onChange={(v) => onChangeObservation('cognitive_functioning', v)}
+            signed={signed}
+          />
+          <SelectField
+            label="Affect"
+            value={note.observations.affect}
+            options={OBSERVATION_OPTIONS.affect}
+            onChange={(v) => onChangeObservation('affect', v)}
+            signed={signed}
+          />
+          <SelectField
+            label="Mood"
+            value={note.observations.mood}
+            options={OBSERVATION_OPTIONS.mood}
+            onChange={(v) => onChangeObservation('mood', v)}
+            signed={signed}
+          />
+          <SelectField
+            label="Interpersonal"
+            value={note.observations.interpersonal}
+            options={OBSERVATION_OPTIONS.interpersonal}
+            onChange={(v) => onChangeObservation('interpersonal', v)}
+            signed={signed}
+          />
+          <SelectField
+            label="Functional Status"
+            value={note.observations.functional_status}
+            options={OBSERVATION_OPTIONS.functional_status}
+            onChange={(v) => onChangeObservation('functional_status', v)}
+            signed={signed}
+          />
+        </div>
+      </NoteCard>
+
+      <NoteCard>
+        <SectionTitle>Risk Factors</SectionTitle>
+        <CheckboxGroup
+          options={RISK_FACTOR_OPTIONS}
+          selected={note.risk_factors}
+          onToggle={onToggleRiskFactor}
+          signed={signed}
+        />
+        {riskOtherChecked && (
+          <div className="mt-2">
+            <LineField
+              label="Other (specify)"
+              value={note.risk_factors_other}
+              onChange={onChangeRiskFactorOther}
+              signed={signed}
+            />
+          </div>
+        )}
+      </NoteCard>
+
+      <NoteCard>
+        <FieldLabel>Medications</FieldLabel>
+        <TextArea value={note.medications} onChange={(v) => onChangeText('medications', v)} signed={signed} />
+      </NoteCard>
+
+      <NoteCard>
+        <FieldLabel>Current Functioning, Symptoms, or Impairments</FieldLabel>
+        <TextArea value={note.current_functioning} onChange={(v) => onChangeText('current_functioning', v)} signed={signed} />
+      </NoteCard>
+
+      <NoteCard>
+        <FieldLabel>Content or Topics Discussed</FieldLabel>
+        <TextArea value={note.content_discussed} onChange={(v) => onChangeText('content_discussed', v)} signed={signed} />
+      </NoteCard>
+
+      <NoteCard>
+        <SectionTitle>Interventions</SectionTitle>
+        <CheckboxGroup
+          options={INTERVENTION_OPTIONS}
+          selected={note.interventions}
+          onToggle={onToggleIntervention}
+          signed={signed}
+        />
+        {interventionsOtherChecked && (
+          <div className="mt-2">
+            <LineField
+              label="Other (specify)"
+              value={note.interventions_other}
+              onChange={onChangeInterventionOther}
+              signed={signed}
+            />
+          </div>
+        )}
+      </NoteCard>
+
+      <NoteCard>
+        <SectionTitle>Treatment Plan Progress</SectionTitle>
+        <div className="flex flex-col gap-3">
+          <LineField label="Objective 1" value={note.treatment_plan.objective_1} onChange={(v) => onChangeTreatmentPlan('objective_1', v)} signed={signed} />
+          <LineField label="Objective 2" value={note.treatment_plan.objective_2} onChange={(v) => onChangeTreatmentPlan('objective_2', v)} signed={signed} />
+          <div>
+            <FieldLabel>Additional Notes Regarding Goals and Objectives</FieldLabel>
+            <TextArea value={note.treatment_plan.additional_notes} onChange={(v) => onChangeTreatmentPlan('additional_notes', v)} signed={signed} rows={4} />
+          </div>
+        </div>
+      </NoteCard>
+
+      <NoteCard>
+        <FieldLabel>Plan</FieldLabel>
+        <TextArea value={note.plan} onChange={(v) => onChangeText('plan', v)} signed={signed} />
+      </NoteCard>
+
+      <NoteCard>
+        <SectionTitle>Recommendation</SectionTitle>
+        <div className="flex flex-col gap-2">
+          {RECOMMENDATION_OPTIONS.map((opt) => (
+            <label
+              key={opt.id}
+              className={`flex items-center gap-2 text-base text-ink ${signed ? 'cursor-default' : 'cursor-pointer'}`}
+            >
+              <input
+                type="radio"
+                name="recommendation"
+                value={opt.id}
+                checked={note.recommendation === opt.id}
+                onChange={() => onChangeRecommendation(opt.id)}
+                disabled={signed}
+              />
+              {opt.label}
+            </label>
           ))}
         </div>
-        <textarea
-          value={form.note_body ?? ''}
-          onChange={(e) => updateForm('note_body', e.target.value || null)}
-          rows={20}
-          readOnly={isSigned}
-          className={`block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm leading-relaxed focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-            isSigned ? 'bg-slate-50 text-slate-700' : ''
-          }`}
-          placeholder="Start typing your session note…"
-        />
-      </fieldset>
-
-      {/* ── Amendments ────────────────────────────── */}
-      {isSigned && (
-        <fieldset className="rounded-lg border border-slate-200 bg-white p-6">
-          <legend className="px-2 text-sm font-semibold uppercase tracking-wide text-slate-600">Amendments</legend>
-
-          {amendmentsQuery.data && amendmentsQuery.data.length > 0 && (
-            <ul className="mb-6 space-y-4">
-              {amendmentsQuery.data.map((a) => (
-                <li key={a.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                  <div className="mb-2 text-xs text-slate-500">
-                    Signed by {a.signed_by_name}
-                    {a.signed_by_credentials ? `, ${a.signed_by_credentials}` : ''}
-                    {' · '}
-                    {formatSignedAt(a.signed_at)}
-                  </div>
-                  <p className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-slate-800">{a.body}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">New amendment</span>
-            <textarea
-              value={amendmentDraft}
-              onChange={(e) => setAmendmentDraft(e.target.value)}
-              rows={6}
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="Describe the correction or addition…"
-            />
-          </label>
-
-          {amendError && <p className="mt-2 text-sm text-red-600">{amendError}</p>}
-
-          <div className="mt-3">
-            <Button
-              onClick={handleAddAmendment}
-              disabled={addAmendment.isPending || !amendmentDraft.trim()}
-            >
-              {addAmendment.isPending ? 'Signing…' : 'Sign Amendment'}
-            </Button>
-          </div>
-        </fieldset>
-      )}
-
-      {/* ── Billing (no Paid checkbox — toggle from the sessions table) ── */}
-      <fieldset className="rounded-lg border border-slate-200 bg-white p-6">
-        <legend className="px-2 text-sm font-semibold uppercase tracking-wide text-slate-600">Billing</legend>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">CPT code</span>
-            <select
-              value={form.cpt_code}
-              onChange={(e) => handleCptChange(e.target.value)}
-              required
-              disabled={isSigned}
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-base focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-slate-50"
-            >
-              <option value="">Select…</option>
-              {CPT_CODES.map((c) => (
-                <option key={c.code} value={c.code}>{c.code} — {c.description}</option>
-              ))}
-            </select>
-            {errors.cpt_code && <span className="mt-1 block text-sm text-red-600">{errors.cpt_code}</span>}
-          </label>
-
-          <Field
-            label="ICD-10 codes"
-            placeholder="F41.1, F32.1"
-            value={form.icd10_codes ?? ''}
-            onChange={(e) => updateForm('icd10_codes', e.target.value || null)}
-            disabled={isSigned}
-          />
-
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Fee (USD)</span>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="text-slate-500">$</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={feeDollarStr}
-                onChange={(e) => setFeeDollarStr(e.target.value)}
-                className="block w-full rounded-md border border-slate-300 px-3 py-2 text-base focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            {isSigned && (
-              <p className="mt-1 text-xs text-slate-500">
-                Fee can still be adjusted post-sign (billing correction).
-              </p>
-            )}
-          </label>
-        </div>
-      </fieldset>
-
-      {save.error && <p className="text-red-600">Save failed: {String(save.error)}</p>}
-      {signError && <p className="text-red-600">Sign failed: {signError}</p>}
-      {save.isSuccess && <p className="text-green-700">Saved.</p>}
-
-      <div className="flex items-center gap-3 border-t border-slate-200 pt-6">
-        <Button onClick={() => doSave(true)}>Save & Close</Button>
-        <Button variant="secondary" onClick={() => doSave(false)}>Save</Button>
-        {!isSigned && (
-          <Button
-            variant="primary"
-            onClick={doSign}
-            disabled={sign.isPending || save.isPending}
-          >
-            {sign.isPending || save.isPending ? 'Signing…' : 'Sign & Lock Note'}
-          </Button>
-        )}
-        <Button type="button" variant="secondary" onClick={() => navigate(`/clients/${clientId}`)}>Cancel</Button>
-        {!isNew && !isSigned && (
-          <Button type="button" variant="danger" onClick={handleDelete} className="ml-auto">Delete</Button>
-        )}
-      </div>
+      </NoteCard>
     </div>
+  )
+}
+
+/* ─── Form primitives (local) ───────────────────────────────────── */
+
+function NoteCard({ children }: { children: React.ReactNode }) {
+  return <Card padding={18}>{children}</Card>
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3
+      className="mb-3 text-md font-semibold text-ink"
+      style={{ fontFamily: 'var(--font-head)' }}
+    >
+      {children}
+    </h3>
+  )
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <div className="mb-2 text-base font-medium text-body">{children}</div>
+}
+
+function TextArea({
+  value,
+  onChange,
+  signed,
+  rows = 5
+}: {
+  value: string
+  onChange: (v: string) => void
+  signed: boolean
+  rows?: number
+}) {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      readOnly={signed}
+      rows={rows}
+      placeholder="Begin typing here…"
+      className="block w-full resize-y rounded-md p-3 text-base leading-[1.55] text-ink outline-none placeholder:text-faint"
+      style={{
+        border: '0.5px solid var(--color-hairline)',
+        background: signed ? 'var(--color-canvas-2)' : 'var(--color-surface)'
+      }}
+    />
+  )
+}
+
+function LineField({
+  label,
+  value,
+  onChange,
+  signed
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  signed: boolean
+}) {
+  return (
+    <label className="block">
+      <div className="mb-1 text-base text-body">{label}</div>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={signed}
+        className="block h-9 w-full rounded-md px-3 text-base text-ink outline-none"
+        style={{
+          border: '0.5px solid var(--color-hairline)',
+          background: signed ? 'var(--color-canvas-2)' : 'var(--color-surface)'
+        }}
+      />
+    </label>
+  )
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  signed
+}: {
+  label: string
+  value: string
+  options: string[]
+  onChange: (v: string) => void
+  signed: boolean
+}) {
+  // Forgiving: if a saved value isn't in the options, render it as the
+  // selected entry so it doesn't silently disappear.
+  const knownValues = new Set(options)
+  const showFallback = value !== '' && !knownValues.has(value)
+  return (
+    <label className="block">
+      <div className="mb-1 text-base text-body">{label}</div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={signed}
+        className="block h-9 w-full rounded-md px-3 text-base text-ink outline-none"
+        style={{
+          border: '0.5px solid var(--color-hairline)',
+          background: signed ? 'var(--color-canvas-2)' : 'var(--color-surface)'
+        }}
+      >
+        <option value="">Select…</option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+        {showFallback && (
+          <option value={value}>{value} (legacy)</option>
+        )}
+      </select>
+    </label>
+  )
+}
+
+function CheckboxGroup({
+  options,
+  selected,
+  onToggle,
+  signed
+}: {
+  options: { id: string; label: string }[]
+  selected: string[]
+  onToggle: (id: string) => void
+  signed: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {options.map((opt) => (
+        <label
+          key={opt.id}
+          className={`flex items-center gap-2 text-base text-ink ${signed ? 'cursor-default' : 'cursor-pointer'}`}
+        >
+          <input
+            type="checkbox"
+            checked={selected.includes(opt.id)}
+            onChange={() => onToggle(opt.id)}
+            disabled={signed}
+          />
+          {opt.label}
+        </label>
+      ))}
+    </div>
+  )
+}
+
+/* ─── Legacy signed note display ────────────────────────────────── */
+
+function LegacyNoteCard({ format, body }: { format: string; body: string }) {
+  return (
+    <Card padding={0}>
+      <div
+        className="flex items-center gap-2 px-5 py-3.5"
+        style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
+      >
+        <h3
+          className="m-0 text-md font-semibold text-ink"
+          style={{ fontFamily: 'var(--font-head)' }}
+        >
+          Note ({format})
+        </h3>
+        <Pill tone="neutral">Legacy format</Pill>
+      </div>
+      <div className="px-5 py-4">
+        <p className="m-0 whitespace-pre-wrap text-base leading-[1.6] text-ink">
+          {body || <span className="text-faint">(empty)</span>}
+        </p>
+      </div>
+    </Card>
+  )
+}
+
+/* ─── Header subcomponents ──────────────────────────────────────── */
+
+function SaveStatus({
+  isSigned,
+  signedAt,
+  savedAt,
+  pending
+}: {
+  isSigned: boolean
+  signedAt: string | null
+  savedAt: Date | null
+  pending: boolean
+}) {
+  if (isSigned && signedAt) {
+    return (
+      <span className="inline-flex items-center gap-1 text-sm text-muted">
+        <Icon name="check" size={13} className="text-success" /> Signed {formatTimestamp(signedAt)}
+      </span>
+    )
+  }
+  if (pending) return <span className="text-sm text-muted">Saving…</span>
+  if (savedAt) return <span className="text-sm text-muted">Saved {savedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+  return <span className="text-sm text-faint">Unsaved</span>
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="px-4 py-3.5"
+      style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
+    >
+      <h3 className="m-0 text-[11.5px] font-semibold uppercase tracking-[0.5px] text-muted">
+        {children}
+      </h3>
+    </div>
+  )
+}
+
+function SnapshotRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2">
+      <span className="w-12 shrink-0 font-medium text-muted">{label}</span>
+      <span className="text-body">{value}</span>
+    </div>
+  )
+}
+
+function SmallInput({
+  label,
+  value,
+  onChange,
+  disabled,
+  type = 'text',
+  prefix,
+  placeholder,
+  error
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+  type?: string
+  prefix?: string
+  placeholder?: string
+  error?: string
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11.5px] font-semibold text-muted">{label}</span>
+      <div
+        className={`flex h-8 items-center rounded-md ${disabled ? 'bg-canvas-2' : 'bg-surface'}`}
+        style={{ border: '0.5px solid var(--color-hairline)', padding: '0 10px' }}
+      >
+        {prefix && <span className="mr-1 text-base text-muted">{prefix}</span>}
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          placeholder={placeholder}
+          className="min-w-0 flex-1 border-0 bg-transparent text-base text-ink outline-none"
+        />
+      </div>
+      {error && <span className="mt-1 block text-sm text-danger">{error}</span>}
+    </label>
+  )
+}
+
+function SmallSelect({
+  label,
+  value,
+  onChange,
+  disabled,
+  options,
+  error
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+  options: { value: string; label: string }[]
+  error?: string
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11.5px] font-semibold text-muted">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className={`block h-8 w-full rounded-md text-base text-ink outline-none ${disabled ? 'bg-canvas-2' : 'bg-surface'}`}
+        style={{ border: '0.5px solid var(--color-hairline)', padding: '0 10px' }}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      {error && <span className="mt-1 block text-sm text-danger">{error}</span>}
+    </label>
   )
 }

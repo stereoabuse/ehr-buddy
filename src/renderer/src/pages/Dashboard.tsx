@@ -1,42 +1,33 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button } from '../components/Button'
 import { CPT_CODES } from '@shared/cpt-codes'
+import { Card } from '../components/Card'
+import { Pill } from '../components/Pill'
+import { Avatar } from '../components/Avatar'
+import { Icon } from '../components/Icon'
+import { fmtMoney, initialsOf } from '../lib/format'
+import { avatarColorFor } from '../lib/avatar'
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const clients = useQuery({ queryKey: ['clients'], queryFn: () => window.api.clients.list() })
-  const clinician = useQuery({ queryKey: ['clinician'], queryFn: () => window.api.clinician.get() })
   const todaySessions = useQuery({ queryKey: ['sessions', 'today'], queryFn: () => window.api.sessions.today() })
   const unpaidSessions = useQuery({ queryKey: ['sessions', 'unpaid'], queryFn: () => window.api.sessions.unpaid() })
+  const roster = useQuery({ queryKey: ['clients', 'roster'], queryFn: () => window.api.clients.roster() })
 
-  const [quickClient, setQuickClient] = useState('')
-  const [backupStatus, setBackupStatus] = useState<string | null>(null)
-  const [backingUp, setBackingUp] = useState(false)
+  const today = todaySessions.data ?? []
+  const unpaid = unpaidSessions.data ?? []
+  const allClients = clients.data ?? []
+  const rosterRows = roster.data ?? []
 
-  function handleQuickNote() {
-    if (quickClient) navigate(`/clients/${quickClient}/sessions/new`)
-  }
+  const activeCount = allClients.filter((c) => c.active === 1).length
+  const unpaidTotal = unpaid.reduce((s, x) => s + x.fee_cents, 0)
+  const unpaidClientIds = new Set(unpaid.map((x) => x.client_id))
+  const unsignedTotal = rosterRows.reduce((s, r) => s + r.unsigned_count, 0)
 
-  async function handleBackup() {
-    setBackingUp(true)
-    setBackupStatus(null)
-    try {
-      const result = await window.api.backup.run()
-      setBackupStatus(result ? `Backed up to ${result.path}` : 'Cancelled')
-    } catch (e) {
-      setBackupStatus(`Error: ${String(e)}`)
-    } finally {
-      setBackingUp(false)
-    }
-  }
-
-  const unpaidTotal = (unpaidSessions.data ?? []).reduce((sum, s) => sum + s.fee_cents, 0)
-
-  // per-client balance from unpaid sessions
+  // Per-client outstanding balances
   const balanceByClient = new Map<string, { name: string; clientId: string; total: number; count: number }>()
-  for (const s of unpaidSessions.data ?? []) {
+  for (const s of unpaid) {
     const existing = balanceByClient.get(s.client_id)
     if (existing) {
       existing.total += s.fee_cents
@@ -50,145 +41,239 @@ export default function Dashboard() {
       })
     }
   }
+  const outstandingClients = [...balanceByClient.values()].sort((a, b) => b.total - a.total)
+
+  // To-do list: derived from real signals (unsigned today + unpaid aggregate)
+  const todayUnsigned = today.filter((s) => !s.signed_at)
+  const todos: Array<{ id: string; label: string; tone: 'danger' | 'warn' | 'neutral'; badge: string; onClick: () => void }> = []
+  for (const s of todayUnsigned) {
+    todos.push({
+      id: `sign-${s.id}`,
+      label: `Sign progress note: ${s.client_first_name} ${s.client_last_name}`,
+      tone: 'warn',
+      badge: 'Today',
+      onClick: () => navigate(`/clients/${s.client_id}/sessions/${s.id}`)
+    })
+  }
+  if (unpaid.length > 0) {
+    todos.push({
+      id: 'unpaid-aggregate',
+      label: `Follow up on ${unpaid.length} unpaid session${unpaid.length === 1 ? '' : 's'} across ${unpaidClientIds.size} client${unpaidClientIds.size === 1 ? '' : 's'}`,
+      tone: 'danger',
+      badge: 'Overdue',
+      onClick: () => navigate('/reports')
+    })
+  }
+  const overdueCount = todos.filter((t) => t.tone === 'danger').length
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <div>
-        <h2 className="text-3xl font-semibold">Dashboard</h2>
-        <p className="mt-1 text-slate-500">
-          {clinician.data?.full_name ? `Welcome, ${clinician.data.full_name}` : 'EHR Buddy'}
-        </p>
+    <div className="mx-auto max-w-[1180px]">
+      {/* KPI strip */}
+      <div className="mb-6 grid grid-cols-4 gap-3.5">
+        <KpiCard
+          label="Today's sessions"
+          value={String(today.length)}
+          sub={today.length === 0 ? 'Nothing scheduled' : describeScheduleSummary(today.length, todayUnsigned.length)}
+          tone="primary"
+        />
+        <KpiCard
+          label="Active clients"
+          value={String(activeCount)}
+          sub={`${allClients.length} total`}
+          tone="ink"
+        />
+        <KpiCard
+          label="Outstanding"
+          value={fmtMoney(unpaidTotal)}
+          sub={unpaidClientIds.size === 0 ? 'All paid up' : `${unpaidClientIds.size} client${unpaidClientIds.size === 1 ? '' : 's'}`}
+          tone="danger"
+        />
+        <KpiCard
+          label="Unsigned notes"
+          value={String(unsignedTotal)}
+          sub={unsignedTotal === 0 ? 'Nothing pending' : 'Past sessions'}
+          tone="warn"
+        />
       </div>
 
-      {/* ── Quick Note ────────────────────────────── */}
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
-        <h3 className="text-lg font-semibold text-blue-900">Quick Session Note</h3>
-        <p className="mt-1 text-sm text-blue-700">Pick a client and start writing</p>
-        <div className="mt-3 flex items-end gap-3">
-          <label className="block flex-1">
-            <span className="text-sm font-medium text-blue-800">Client</span>
-            <select
-              value={quickClient}
-              onChange={(e) => setQuickClient(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-blue-300 bg-white px-3 py-2 text-base focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      {/* Two-col: schedule + to-do */}
+      <div className="mb-4 grid gap-4" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
+        <Card padding={0}>
+          <SectionHeader title="Today's schedule">
+            <Link
+              to="/clients"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary-dark"
             >
-              <option value="">Select…</option>
-              {(clients.data ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.last_name}, {c.first_name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button onClick={handleQuickNote} disabled={!quickClient}>
-            New Session →
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* ── Today's Sessions ────────────────────── */}
-        <div className="rounded-lg border border-slate-200 bg-white p-6">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Today</h3>
-          {todaySessions.data && todaySessions.data.length === 0 && (
-            <p className="mt-3 text-slate-400">No sessions logged today.</p>
-          )}
-          {todaySessions.data && todaySessions.data.length > 0 && (
-            <ul className="mt-3 divide-y divide-slate-100">
-              {todaySessions.data.map((s) => {
+              View clients <Icon name="chevR" size={12} />
+            </Link>
+          </SectionHeader>
+          {today.length === 0 ? (
+            <EmptyRow>No sessions logged today.</EmptyRow>
+          ) : (
+            <div>
+              {today.map((s, i) => {
                 const cpt = CPT_CODES.find((c) => c.code === s.cpt_code)
+                const fullName = `${s.client_first_name} ${s.client_last_name}`
+                const color = avatarColorFor(s.client_id)
                 return (
-                  <li key={s.id} className="flex items-center justify-between py-2">
-                    <Link
-                      to={`/clients/${s.client_id}/sessions/${s.id}`}
-                      className="text-blue-700 hover:underline"
-                    >
-                      {s.client_first_name} {s.client_last_name}
-                    </Link>
-                    <span className="text-sm text-slate-500">
-                      {s.start_time}–{s.end_time}
-                      {cpt && ` · ${cpt.code}`}
-                    </span>
-                  </li>
+                  <button
+                    key={s.id}
+                    onClick={() => navigate(`/clients/${s.client_id}/sessions/${s.id}`)}
+                    className="flex w-full items-center gap-3.5 px-5 py-3.5 text-left transition-colors hover:bg-canvas-2"
+                    style={{
+                      borderBottom: i < today.length - 1 ? '0.5px solid var(--color-divider)' : 'none'
+                    }}
+                  >
+                    <div className="w-[60px] text-sm font-semibold text-body" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {s.start_time}
+                      <div className="text-[10.5px] font-normal text-muted">{s.end_time}</div>
+                    </div>
+                    <div className="w-[3px] self-stretch rounded" style={{ background: color }} />
+                    <Avatar
+                      initials={initialsOf(s.client_first_name, s.client_last_name)}
+                      color={color}
+                      size={32}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-base font-semibold text-ink">{fullName}</div>
+                      <div className="mt-px text-sm text-muted">
+                        {cpt ? cpt.description : s.cpt_code}
+                        {s.icd10_codes ? ` · ${s.icd10_codes.split(',')[0]?.trim()}` : ''}
+                      </div>
+                    </div>
+                    {!s.signed_at && <Pill tone="warn">Unsigned</Pill>}
+                    <Icon name="chevR" size={16} className="text-faint" />
+                  </button>
                 )
               })}
-            </ul>
+            </div>
           )}
-        </div>
+        </Card>
 
-        {/* ── Unpaid Sessions ─────────────────────── */}
-        <div className="rounded-lg border border-slate-200 bg-white p-6">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-            Unpaid
-          </h3>
-          {(unpaidSessions.data ?? []).length === 0 ? (
-            <p className="mt-3 text-green-600">All caught up!</p>
+        <Card padding={0}>
+          <SectionHeader title="To-do">
+            {overdueCount > 0 && <Pill tone="danger">{overdueCount} overdue</Pill>}
+          </SectionHeader>
+          {todos.length === 0 ? (
+            <EmptyRow>All caught up — nothing on your list.</EmptyRow>
           ) : (
-            <>
-              <p className="mt-3 text-2xl font-bold text-red-700">
-                ${(unpaidTotal / 100).toFixed(2)}
-              </p>
-              <p className="text-sm text-slate-500">
-                across {unpaidSessions.data!.length} session{unpaidSessions.data!.length !== 1 ? 's' : ''}
-              </p>
-              <ul className="mt-3 space-y-1">
-                {[...balanceByClient.values()].map((b) => (
-                  <li key={b.clientId} className="flex items-center justify-between text-sm">
-                    <Link to={`/clients/${b.clientId}`} className="text-blue-700 hover:underline">
-                      {b.name}
-                    </Link>
-                    <span className="font-medium text-slate-700">
-                      ${(b.total / 100).toFixed(2)} ({b.count})
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </>
+            <div>
+              {todos.map((t, i) => (
+                <button
+                  key={t.id}
+                  onClick={t.onClick}
+                  className="flex w-full items-start gap-3 px-5 py-3 text-left transition-colors hover:bg-canvas-2"
+                  style={{ borderBottom: i < todos.length - 1 ? '0.5px solid var(--color-divider)' : 'none' }}
+                >
+                  <div
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded"
+                    style={{ border: '1.5px solid var(--color-hairline)' }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-base leading-snug text-ink">{t.label}</div>
+                    <div className="mt-1">
+                      <Pill tone={t.tone}>{t.badge}</Pill>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
-        </div>
+        </Card>
       </div>
 
-      {/* ── Secondary tiles ───────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Link
-          to="/clients"
-          className="rounded-lg border border-slate-200 bg-white p-4 text-center shadow-sm transition hover:border-blue-500 hover:shadow"
-        >
-          <div className="text-2xl font-bold">{clients.data?.length ?? '…'}</div>
-          <div className="text-sm text-slate-500">Clients</div>
-        </Link>
-        <Link
-          to="/profile"
-          className="rounded-lg border border-slate-200 bg-white p-4 text-center shadow-sm transition hover:border-blue-500 hover:shadow"
-        >
-          <div className="text-lg font-semibold">Profile</div>
-          <div className="truncate text-sm text-slate-500">
-            {clinician.data?.full_name ?? 'Set up'}
+      {/* Outstanding balances */}
+      {outstandingClients.length > 0 && (
+        <Card padding={0}>
+          <SectionHeader title="Outstanding balances">
+            <span
+              className="text-xl font-semibold text-danger"
+              style={{ fontFamily: 'var(--font-head)', letterSpacing: '-0.3px' }}
+            >
+              {fmtMoney(unpaidTotal)}
+            </span>
+          </SectionHeader>
+          <div className="grid grid-cols-4">
+            {outstandingClients.slice(0, 8).map((c, i) => (
+              <Link
+                key={c.clientId}
+                to={`/clients/${c.clientId}`}
+                className="flex items-center gap-2.5 px-5 py-3.5 transition-colors hover:bg-canvas-2"
+                style={{
+                  borderRight: (i + 1) % 4 !== 0 ? '0.5px solid var(--color-divider)' : 'none',
+                  borderTop: i >= 4 ? '0.5px solid var(--color-divider)' : 'none'
+                }}
+              >
+                <Avatar
+                  initials={initialsOf(c.name.split(' ')[0] ?? '', c.name.split(' ').slice(-1)[0] ?? '')}
+                  color={avatarColorFor(c.clientId)}
+                  size={28}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-base font-semibold text-ink">{c.name}</div>
+                  <div className="text-sm font-semibold text-danger">{fmtMoney(c.total)}</div>
+                </div>
+              </Link>
+            ))}
           </div>
-        </Link>
-        <button
-          type="button"
-          onClick={handleBackup}
-          disabled={backingUp}
-          className="rounded-lg border border-slate-200 bg-white p-4 text-center shadow-sm transition hover:border-blue-500 hover:shadow disabled:opacity-50"
-        >
-          <div className="text-lg font-semibold">Backup</div>
-          <div className="text-sm text-slate-500">{backingUp ? 'Saving…' : 'Back up now'}</div>
-        </button>
-        <Link
-          to="/clients/new"
-          className="rounded-lg border border-slate-200 bg-white p-4 text-center shadow-sm transition hover:border-blue-500 hover:shadow"
-        >
-          <div className="text-lg font-semibold">+ Client</div>
-          <div className="text-sm text-slate-500">Add new</div>
-        </Link>
-      </div>
-
-      {backupStatus && (
-        <p className={`text-sm ${backupStatus.startsWith('Error') ? 'text-red-600' : 'text-green-700'}`}>
-          {backupStatus}
-        </p>
+        </Card>
       )}
     </div>
+  )
+}
+
+function describeScheduleSummary(total: number, unsigned: number): string {
+  if (unsigned === 0) return `${total} signed`
+  if (unsigned === total) return `${total} pending notes`
+  return `${total - unsigned} signed · ${unsigned} pending`
+}
+
+function SectionHeader({ title, children }: { title: string; children?: React.ReactNode }) {
+  return (
+    <div
+      className="flex items-center px-5 py-4"
+      style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
+    >
+      <h3 className="m-0 text-lg font-semibold text-ink" style={{ fontFamily: 'var(--font-head)' }}>
+        {title}
+      </h3>
+      <div className="flex-1" />
+      {children}
+    </div>
+  )
+}
+
+function EmptyRow({ children }: { children: React.ReactNode }) {
+  return <div className="px-5 py-6 text-base text-muted">{children}</div>
+}
+
+function KpiCard({
+  label,
+  value,
+  sub,
+  tone
+}: {
+  label: string
+  value: string
+  sub: string
+  tone: 'primary' | 'ink' | 'danger' | 'warn'
+}) {
+  const valueClass = {
+    primary: 'text-primary',
+    ink: 'text-ink',
+    danger: 'text-danger',
+    warn: 'text-warn'
+  }[tone]
+  return (
+    <Card padding={18}>
+      <div className="text-[11.5px] font-semibold uppercase tracking-[0.4px] text-muted">{label}</div>
+      <div
+        className={`mt-1.5 text-3xl font-semibold ${valueClass}`}
+        style={{ fontFamily: 'var(--font-head)', letterSpacing: '-0.5px' }}
+      >
+        {value}
+      </div>
+      <div className="mt-0.5 text-sm text-muted">{sub}</div>
+    </Card>
   )
 }

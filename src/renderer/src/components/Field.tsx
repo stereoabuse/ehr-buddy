@@ -5,15 +5,20 @@ interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string
 }
 
-export function Field({ label, error, className = '', ...props }: FieldProps) {
+export function Field({ label, error, className = '', disabled, ...props }: FieldProps) {
   return (
     <label className={`block ${className}`}>
-      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <span className="text-base font-medium text-body">{label}</span>
       <input
         {...props}
-        className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-base focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        disabled={disabled}
+        className="mt-1 block h-9 w-full rounded-md px-3 text-base text-ink outline-none placeholder:text-faint disabled:cursor-not-allowed disabled:opacity-70"
+        style={{
+          border: '0.5px solid var(--color-hairline)',
+          background: disabled ? 'var(--color-canvas-2)' : 'var(--color-surface)'
+        }}
       />
-      {error && <span className="mt-1 block text-sm text-red-600">{error}</span>}
+      {error && <span className="mt-1 block text-sm text-danger">{error}</span>}
     </label>
   )
 }

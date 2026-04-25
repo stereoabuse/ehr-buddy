@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '../connection'
 import type {
+  NoteFormat,
   Session,
   SessionAmendment,
   SessionInput,
@@ -108,7 +109,7 @@ export function setPaid(id: string, paid: 0 | 1): Session {
 export function sign(
   id: string,
   body: string,
-  note_format: 'DAP' | 'FREE',
+  note_format: NoteFormat,
   signedAt: string,
   signerName: string,
   signerCredentials: string | null

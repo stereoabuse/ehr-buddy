@@ -2,11 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design tokens — see design-handoff/tokens.css */
+:root {
+  /* Ink (text) — cool warm-neutral scale */
+  --color-ink:        #1E2230;
+  --color-ink-2:      #2D3242;
+  --color-body:       #4B5267;
+  --color-muted:      #7A8095;
+  --color-faint:      #A8AEC0;
+
+  /* Surfaces */
+  --color-surface:    #FFFFFF;
+  --color-canvas:     #F2F3F7;
+  --color-canvas-2:   #F8F9FC;
+  --color-hairline:   #E2E4EC;
+  --color-divider:    #ECEEF4;
+
+  /* Sidebar */
+  --color-sidebar:        #2A2F3D;
+  --color-sidebar-ink:    #E4E6EE;
+  --color-sidebar-muted:  #8E94A6;
+  --color-sidebar-hover:  #3A4054;
+
+  /* Brand / accent */
+  --color-primary:      #7A89B8;
+  --color-primary-dark: #5E6E9D;
+  --color-primary-soft: #E5E9F4;
+  --color-accent:       #8C7AA8;
+
+  /* Semantic */
+  --color-danger:       #B5524F;
+  --color-danger-soft:  #F5E2E0;
+  --color-warn:         #A88044;
+  --color-warn-soft:    #F2E8D5;
+  --color-success:      #6B8E7E;
+  --color-success-soft: #E2EDE7;
+
+  /* Type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  --font-head: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+
+  /* Radii */
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 0 rgba(30, 34, 48, 0.04), 0 0 0 0.5px var(--color-hairline);
+  --shadow-pop:  0 8px 24px rgba(30, 34, 48, 0.10), 0 0 0 0.5px var(--color-hairline);
+
+  /* Density */
+  --row-h-compact: 40px;
+  --row-h-comfy:   48px;
+  --row-h-cozy:    56px;
+}
+
 html, body, #root {
   height: 100%;
 }
 
-body {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 16px;
+html, body {
+  background: var(--color-canvas);
+  color: var(--color-body);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

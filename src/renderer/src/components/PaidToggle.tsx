@@ -28,7 +28,8 @@ export function PaidToggle({ paid, onToggle, pending }: PaidToggleProps) {
 
   const isPaid = paid === 1
 
-  function commit() {
+  function commit(e: React.MouseEvent) {
+    e.stopPropagation()
     onToggle()
     setOpen(false)
   }
@@ -37,28 +38,37 @@ export function PaidToggle({ paid, onToggle, pending }: PaidToggleProps) {
     <div ref={rootRef} className="relative inline-block">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((v) => !v)
+        }}
         disabled={pending}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`inline-flex min-w-[4.5rem] justify-center rounded-full px-3 py-1 text-xs font-medium transition ${
+        className={[
+          'inline-flex h-5 min-w-[4.5rem] items-center justify-center gap-1 whitespace-nowrap rounded-full px-2 text-[11px] font-semibold tracking-[0.1px] transition-colors',
           isPaid
-            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-        } disabled:opacity-50`}
+            ? 'bg-success-soft text-success hover:brightness-95'
+            : 'bg-danger-soft text-danger hover:brightness-95',
+          'disabled:opacity-50'
+        ].join(' ')}
       >
         {isPaid ? 'Paid' : 'Unpaid'}
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full z-20 mt-1 min-w-[9rem] overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
+          className="absolute left-0 top-full z-20 mt-1 min-w-[9rem] overflow-hidden rounded-md bg-surface"
+          style={{
+            border: '0.5px solid var(--color-hairline)',
+            boxShadow: 'var(--shadow-pop)'
+          }}
         >
           <button
             type="button"
             role="menuitem"
             onClick={commit}
-            className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+            className="block w-full px-3 py-2 text-left text-base text-body hover:bg-canvas-2"
           >
             Mark {isPaid ? 'unpaid' : 'paid'}
           </button>

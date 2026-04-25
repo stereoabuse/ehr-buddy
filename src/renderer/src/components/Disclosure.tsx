@@ -9,18 +9,21 @@ interface DisclosureProps {
 export function Disclosure({ title, defaultOpen = false, children }: DisclosureProps) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <fieldset className="rounded-lg border border-slate-200 bg-white">
+    <fieldset
+      className="rounded-lg bg-surface"
+      style={{ border: '0.5px solid var(--color-hairline)' }}
+    >
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-6 py-4"
+        className="flex w-full items-center justify-between px-5 py-3.5"
       >
-        <legend className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+        <legend className="text-sm font-semibold uppercase tracking-[0.4px] text-muted">
           {title}
         </legend>
-        <span className="text-slate-400">{open ? '▾' : '▸'}</span>
+        <span className="text-faint">{open ? '▾' : '▸'}</span>
       </button>
-      {open && <div className="px-6 pb-6">{children}</div>}
+      {open && <div className="px-5 pb-5">{children}</div>}
     </fieldset>
   )
 }

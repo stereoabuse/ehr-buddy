@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import type { ReportArgs } from '@shared/api-types'
-import { Button } from '../components/Button'
+import { Btn } from '../components/Btn'
+import { Card } from '../components/Card'
 import { Field } from '../components/Field'
 
 function janFirst(): string {
@@ -29,61 +30,79 @@ export default function Reports() {
     onError: (e) => setStatus(`Error: ${String(e)}`)
   })
 
-  function handlePdf() {
-    setStatus(null)
-    pdfMut.mutate({ fromDate, toDate })
-  }
-
-  function handleCsv() {
-    setStatus(null)
-    csvMut.mutate({ fromDate, toDate })
-  }
-
   const busy = pdfMut.isPending || csvMut.isPending
+  const isError = status?.startsWith('Error') ?? false
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <div>
-        <h2 className="text-3xl font-semibold">Reports</h2>
-        <p className="mt-1 text-slate-500">Generate income reports and session detail exports for tax or bookkeeping</p>
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-5">
+        <h2
+          className="m-0 text-2xl font-semibold text-ink"
+          style={{ fontFamily: 'var(--font-head)', letterSpacing: '-0.4px' }}
+        >
+          Reports
+        </h2>
+        <p className="mt-1 text-base text-muted">
+          Generate income reports and session detail exports for tax or bookkeeping.
+        </p>
       </div>
 
-      <fieldset className="rounded-lg border border-slate-200 bg-white p-6">
-        <legend className="px-2 text-sm font-semibold uppercase tracking-wide text-slate-600">Date Range</legend>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <Card padding={0}>
+        <div
+          className="px-[18px] py-3.5"
+          style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
+        >
+          <h3 className="m-0 text-md font-semibold text-ink" style={{ fontFamily: 'var(--font-head)' }}>
+            Date range
+          </h3>
+        </div>
+        <div className="grid grid-cols-2 gap-4 px-[18px] py-4">
           <Field label="From" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           <Field label="To" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
         </div>
-      </fieldset>
+      </Card>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border border-slate-200 bg-white p-6">
-          <h3 className="text-lg font-semibold">Income Summary (PDF)</h3>
-          <p className="mt-1 text-sm text-slate-500">
-            Clinician header, per-client totals, CPT breakdown, grand totals. Good for your records or an accountant.
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <Card>
+          <h3 className="m-0 text-md font-semibold text-ink" style={{ fontFamily: 'var(--font-head)' }}>
+            Income summary (PDF)
+          </h3>
+          <p className="mt-1 text-sm text-muted">
+            Clinician header, per-client totals, CPT breakdown, grand totals. For your records or an accountant.
           </p>
           <div className="mt-4">
-            <Button onClick={handlePdf} disabled={busy}>
+            <Btn
+              icon="pdf"
+              onClick={() => { setStatus(null); pdfMut.mutate({ fromDate, toDate }) }}
+              disabled={busy}
+            >
               {pdfMut.isPending ? 'Generating…' : 'Generate PDF'}
-            </Button>
+            </Btn>
           </div>
-        </div>
+        </Card>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-6">
-          <h3 className="text-lg font-semibold">Session Detail (CSV)</h3>
-          <p className="mt-1 text-sm text-slate-500">
+        <Card>
+          <h3 className="m-0 text-md font-semibold text-ink" style={{ fontFamily: 'var(--font-head)' }}>
+            Session detail (CSV)
+          </h3>
+          <p className="mt-1 text-sm text-muted">
             One row per session: date, client, CPT, ICD-10, fee, paid. Opens in Excel or Google Sheets.
           </p>
           <div className="mt-4">
-            <Button onClick={handleCsv} disabled={busy}>
+            <Btn
+              icon="download"
+              variant="secondary"
+              onClick={() => { setStatus(null); csvMut.mutate({ fromDate, toDate }) }}
+              disabled={busy}
+            >
               {csvMut.isPending ? 'Exporting…' : 'Export CSV'}
-            </Button>
+            </Btn>
           </div>
-        </div>
+        </Card>
       </div>
 
       {status && (
-        <p className={`text-sm ${status.startsWith('Error') ? 'text-red-600' : 'text-green-700'}`}>
+        <p className={`mt-4 text-sm ${isError ? 'text-danger' : 'text-success'}`}>
           {status}
         </p>
       )}
