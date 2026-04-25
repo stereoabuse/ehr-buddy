@@ -8,6 +8,7 @@ import { Card } from '../components/Card'
 import { Pill } from '../components/Pill'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { Icd10Picker, parseIcd10String, serializeIcd10List } from '../components/Icd10Picker'
 import { initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import {
@@ -563,12 +564,11 @@ export default function SessionEditor() {
                   ]}
                   error={errors.cpt_code}
                 />
-                <SmallInput
+                <Icd10Picker
                   label="ICD-10 codes"
-                  value={form.icd10_codes ?? ''}
-                  onChange={(v) => updateForm('icd10_codes', v || null)}
+                  value={parseIcd10String(form.icd10_codes)}
+                  onChange={(next) => updateForm('icd10_codes', serializeIcd10List(next))}
                   disabled={isSigned}
-                  placeholder="F41.1, F32.1"
                 />
                 <SmallInput
                   label="Fee"
