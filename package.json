@@ -14,7 +14,7 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "icd10:refresh": "node scripts/fetch-icd10.mjs",
-    "postinstall": "electron-rebuild -f -w better-sqlite3"
+    "postinstall": "electron-rebuild -f -w better-sqlite3 && node scripts/patch-electron-name.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.0",
