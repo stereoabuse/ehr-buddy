@@ -7,6 +7,10 @@ import { audit } from './audit'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
+if (process.platform === 'win32') {
+  app.setName('EHR Buddy')
+}
+
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1200,
