@@ -114,6 +114,8 @@ npm run dist:win
 
 Output goes to the `dist/` directory. Cross-compilation is not supported -- build on the target OS.
 
+For GitHub release builds, see [RELEASING.md](RELEASING.md). The release workflow builds the Windows installer and macOS DMG on GitHub-hosted runners and creates a draft release.
+
 ### Project structure
 
 ```
