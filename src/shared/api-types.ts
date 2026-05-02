@@ -44,6 +44,11 @@ export interface AddAmendmentArgs {
   body: string
 }
 
+export interface PermanentDeleteClientArgs {
+  id: string
+  confirmation: string
+}
+
 export interface Api {
   ping: () => Promise<PingResult>
   clients: {
@@ -52,6 +57,7 @@ export interface Api {
     get: (id: string) => Promise<Client | null>
     upsert: (input: ClientInput) => Promise<Client>
     delete: (id: string) => Promise<{ ok: boolean }>
+    permanentDelete: (args: PermanentDeleteClientArgs) => Promise<{ ok: boolean }>
   }
   clinician: {
     get: () => Promise<Clinician | null>

@@ -9,7 +9,8 @@ const api: Api = {
     roster: () => ipcRenderer.invoke(IPC.CLIENTS_ROSTER),
     get: (id) => ipcRenderer.invoke(IPC.CLIENTS_GET, id),
     upsert: (input) => ipcRenderer.invoke(IPC.CLIENTS_UPSERT, input),
-    delete: (id) => ipcRenderer.invoke(IPC.CLIENTS_DELETE, id)
+    delete: (id) => ipcRenderer.invoke(IPC.CLIENTS_DELETE, id),
+    permanentDelete: (args) => ipcRenderer.invoke(IPC.CLIENTS_PERMANENT_DELETE, args)
   },
   clinician: {
     get: () => ipcRenderer.invoke(IPC.CLINICIAN_GET),

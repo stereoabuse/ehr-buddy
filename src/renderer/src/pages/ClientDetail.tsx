@@ -801,8 +801,26 @@ function InfoForm({
     }
   })
 
+  const permanentDel = useMutation({
+    mutationFn: (args: { id: string; confirmation: string }) =>
+      window.api.clients.permanentDelete(args),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] })
+      qc.invalidateQueries({ queryKey: ['sessions'] })
+      qc.invalidateQueries({ queryKey: ['documents'] })
+      qc.removeQueries({ queryKey: ['clients', clientId] })
+      navigate('/clients')
+    }
+  })
+
   function update<K extends keyof ClientInput>(key: K, value: ClientInput[K]) {
     setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  function persistedFullName() {
+    const first = clientQuery.data?.first_name ?? form.first_name
+    const last = clientQuery.data?.last_name ?? form.last_name
+    return `${first} ${last}`.replace(/\s+/g, ' ').trim()
   }
 
   function handleSave(e: React.FormEvent) {
@@ -817,8 +835,28 @@ function InfoForm({
 
   function handleDelete() {
     if (!clientId) return
-    if (confirm(`Delete ${form.first_name} ${form.last_name}? They will be hidden from the client list.`))
+    if (confirm(`Archive ${persistedFullName()}? They will be hidden from the client list.`))
       del.mutate(clientId)
+  }
+
+  function handlePermanentDelete() {
+    if (!clientId) return
+    const fullName = persistedFullName()
+    const typed = prompt([
+      `Permanently delete ${fullName}?`,
+      '',
+      'This removes the client, sessions, notes, amendments, billing records, and uploaded documents from this device.',
+      'The audit log entry will remain.',
+      '',
+      `Type ${fullName} to confirm.`
+    ].join('\n'))
+    if (typed === null) return
+    if (typed !== fullName) {
+      alert('Permanent delete cancelled. The typed name did not match exactly.')
+      return
+    }
+    if (!confirm(`Last chance: permanently delete ${fullName}? This cannot be undone.`)) return
+    permanentDel.mutate({ id: clientId, confirmation: typed })
   }
 
   return (
@@ -858,6 +896,9 @@ function InfoForm({
       </Disclosure>
 
       {save.error && <p className="text-sm text-danger">Save failed: {String(save.error)}</p>}
+      {permanentDel.error && (
+        <p className="text-sm text-danger">Permanent delete failed: {String(permanentDel.error)}</p>
+      )}
 
       <div className="flex items-center gap-3 pt-4" style={{ borderTop: '0.5px solid var(--color-hairline)' }}>
         <Btn type="submit" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</Btn>
@@ -872,9 +913,19 @@ function InfoForm({
           Cancel
         </Btn>
         {!isNew && (
-          <Btn type="button" variant="danger" onClick={handleDelete} className="ml-auto">
-            Delete
-          </Btn>
+          <div className="ml-auto flex items-center gap-2">
+            <Btn type="button" variant="danger" onClick={handleDelete} disabled={del.isPending}>
+              {del.isPending ? 'Archiving...' : 'Archive'}
+            </Btn>
+            <Btn
+              type="button"
+              variant="danger"
+              onClick={handlePermanentDelete}
+              disabled={permanentDel.isPending}
+            >
+              {permanentDel.isPending ? 'Deleting...' : 'Delete forever'}
+            </Btn>
+          </div>
         )}
       </div>
     </form>

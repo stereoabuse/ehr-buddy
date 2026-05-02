@@ -123,3 +123,29 @@ export function softDelete(id: string): void {
     .prepare('UPDATE clients SET active = 0, updated_at = ? WHERE id = ?')
     .run(new Date().toISOString(), id)
 }
+
+export interface PermanentDeleteSummary {
+  sessions: number
+  amendments: number
+  documents: number
+  treatmentPlans: number
+}
+
+export function permanentDelete(id: string): PermanentDeleteSummary {
+  const db = getDb()
+  const summary: PermanentDeleteSummary = {
+    sessions: (db.prepare('SELECT COUNT(*) AS count FROM sessions WHERE client_id = ?').get(id) as { count: number }).count,
+    amendments: (db.prepare(
+      `SELECT COUNT(*) AS count
+       FROM session_amendments a
+       JOIN sessions s ON s.id = a.session_id
+       WHERE s.client_id = ?`
+    ).get(id) as { count: number }).count,
+    documents: (db.prepare('SELECT COUNT(*) AS count FROM client_documents WHERE client_id = ?').get(id) as { count: number }).count,
+    treatmentPlans: (db.prepare('SELECT COUNT(*) AS count FROM treatment_plans WHERE client_id = ?').get(id) as { count: number }).count
+  }
+
+  const result = db.prepare('DELETE FROM clients WHERE id = ?').run(id)
+  if (result.changes === 0) throw new Error('Client not found')
+  return summary
+}

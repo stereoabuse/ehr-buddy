@@ -5,6 +5,7 @@ export const IPC = {
   CLIENTS_GET: 'clients:get',
   CLIENTS_UPSERT: 'clients:upsert',
   CLIENTS_DELETE: 'clients:delete',
+  CLIENTS_PERMANENT_DELETE: 'clients:permanentDelete',
   CLINICIAN_GET: 'clinician:get',
   CLINICIAN_UPSERT: 'clinician:upsert',
   SESSIONS_LIST_BY_CLIENT: 'sessions:listByClient',

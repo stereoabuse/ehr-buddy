@@ -191,6 +191,7 @@ export type AuditAction =
   | 'client_create'
   | 'client_update'
   | 'client_delete'
+  | 'client_permanent_delete'
   | 'roster_view'
   | 'session_view'
   | 'session_create'

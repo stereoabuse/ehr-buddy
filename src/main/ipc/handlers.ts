@@ -73,6 +73,11 @@ const setPaidSchema = z.object({
   paid: z.number().int().min(0).max(1)
 })
 
+const permanentDeleteClientSchema = z.object({
+  id: z.string().min(1),
+  confirmation: z.string().min(1)
+})
+
 const signSchema = z.object({
   id: z.string().min(1),
   body: z.string().trim().min(1, 'Cannot sign an empty note'),
@@ -140,6 +145,10 @@ function clinicianSigner(): { name: string; credentials: string | null } {
   return { name: c.full_name, credentials: c.credentials }
 }
 
+function clientFullName(client: { first_name: string; last_name: string }): string {
+  return `${client.first_name} ${client.last_name}`.replace(/\s+/g, ' ').trim()
+}
+
 // Fields whose change is rejected once a session is signed. paid + fee_cents
 // are intentionally NOT in this list — billing corrections post-sign are
 // routine and don't falsify the clinical record.
@@ -184,6 +193,38 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.CLIENTS_DELETE, (_e, id: string) => {
     clientsRepo.softDelete(id)
     audit('client_delete', 'client', id)
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC.CLIENTS_PERMANENT_DELETE, (_e, input: unknown) => {
+    const args = permanentDeleteClientSchema.parse(input)
+    const client = clientsRepo.get(args.id)
+    if (!client) return { ok: true }
+
+    const fullName = clientFullName(client)
+    if (args.confirmation !== fullName) {
+      throw new Error(`Confirmation must exactly match "${fullName}".`)
+    }
+
+    const docs = documentsRepo.list(args.id)
+    for (const doc of docs) {
+      try {
+        unlinkSync(documentPath(doc.stored_filename))
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          throw new Error(`Could not remove document file "${doc.original_filename ?? doc.stored_filename}".`)
+        }
+      }
+    }
+
+    const summary = clientsRepo.permanentDelete(args.id)
+    audit('client_permanent_delete', 'client', args.id, {
+      name: fullName,
+      sessions: summary.sessions,
+      amendments: summary.amendments,
+      documents: summary.documents,
+      treatment_plans: summary.treatmentPlans
+    })
     return { ok: true }
   })
 
