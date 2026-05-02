@@ -56,7 +56,14 @@ The clinician profile includes a `tax_id` field. If you enter your Social Securi
 
 ## 4. Backups
 
-The one-click backup feature copies the database file to a location you choose. The backup is an unencrypted copy of the full database.
+The **Back up now** feature copies the database file to a location you choose. The backup is an unencrypted copy of the full database.
+
+The **Export full archive** feature creates a ZIP file containing:
+
+- `ehrbuddy.db` -- the SQLite database
+- `documents/` -- uploaded document files
+- `exports/` -- CSV exports for clients, sessions, notes, amendments, documents, and audit log
+- `manifest.json` -- export timestamp, app version, platform, and row counts
 
 - Store backups on an encrypted external drive or encrypted cloud storage.
 - Do not leave backup copies on unencrypted USB drives, shared network folders, or desktop folders on unencrypted machines.
@@ -116,7 +123,7 @@ Because all data is local and unprotected by a login, physical security of your 
 - [ ] OS user account has a strong password
 - [ ] Computer locks automatically after a short idle period
 - [ ] Backups are stored on encrypted media only
-- [ ] **Documents folder is backed up alongside the database** (see §10)
+- [ ] Full archives or database/document backups are stored on encrypted media only
 - [ ] Superbills are sent via encrypted email or secure messaging
 - [ ] Tax ID field uses EIN rather than SSN
 - [ ] Computer screen is not visible to unauthorized people during use
@@ -134,9 +141,9 @@ When you upload a consent form (or any document) for a client, the file is copie
 
 Files are stored unencrypted on disk, with the same threat model as the SQLite database — disk encryption is your control. Only metadata (label, type, size, original filename) lives in the database; the bytes live in this folder, named with a random UUID + the original extension.
 
-**The one-click backup currently copies only the database file.** It does not include the documents folder. If you rely on uploaded consents being recoverable, you must back up this folder yourself in addition to running the in-app backup. A combined backup is on the roadmap.
+**Back up now** copies only the database file. **Export full archive** includes both the database and the documents folder, along with human-readable CSV exports. If you use the database-only backup, back up the documents folder separately.
 
-If you delete a document from inside EHR Buddy, the file is removed from disk and the database row is removed. Deleting a client (which only soft-deletes today) does not delete their documents.
+If you delete a document from inside EHR Buddy, the file is removed from disk and the database row is removed. Archiving a client does not delete their documents. Permanently deleting a client removes their uploaded document files and database records.
 
 ---
 

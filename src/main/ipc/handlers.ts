@@ -11,7 +11,7 @@ import * as documentsRepo from '../db/repos/documents'
 import { generateSuperbill } from '../pdf/superbill'
 import { generateTaxReport } from '../pdf/tax-report'
 import { generateCsvExport } from '../reports/csv-export'
-import { runBackup } from '../backup'
+import { runBackup, runFullArchive } from '../backup'
 import { audit, exportAuditCsv, listAudit } from '../audit'
 
 const clientUpsertSchema = z.object({
@@ -404,6 +404,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.BACKUP_RUN, async () => {
     const path = await runBackup()
     if (path) audit('backup_run', 'backup', null, { path })
+    return path ? { path } : null
+  })
+
+  ipcMain.handle(IPC.BACKUP_FULL_ARCHIVE, async () => {
+    const path = await runFullArchive()
+    if (path) audit('archive_export', 'backup', null, { path })
     return path ? { path } : null
   })
 

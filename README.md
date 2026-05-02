@@ -20,7 +20,7 @@
 - **Income summary (PDF)** -- date-ranged report with per-client totals, CPT breakdown, and grand totals
 - **Session detail (CSV)** -- date-ranged export with one row per session (date, client, CPT, ICD-10, fee, paid) plus a totals row, suitable for Excel or an accountant
 - **Activity log** -- append-only record of every read, edit, and export of patient data (HIPAA §164.312(b)), surfaced under Settings, exportable to CSV
-- **One-click backup** -- copies the SQLite database to a location you choose (the documents folder is separate; back it up alongside)
+- **Backups and full archive export** -- copy the SQLite database, or export a ZIP containing the database, uploaded documents, CSVs, and a manifest
 
 There is no cloud sync, no user authentication, no payment processing, no insurance claim submission, and no third-party services of any kind. EHR Buddy never makes a network request. The app is designed for a single clinician on a single machine.
 
@@ -57,7 +57,7 @@ The database is a single SQLite file:
 
 ### Backups
 
-Use the one-click backup button on the Dashboard. It copies the database file to a folder you select. Store backups on an encrypted drive. See [SECURITY.md](SECURITY.md) for details.
+Use the backup tools under Settings. **Back up now** copies the database file to a location you select. **Export full archive** creates a ZIP with the database, uploaded documents, CSV exports, and a manifest. Store backups on encrypted storage. See [SECURITY.md](SECURITY.md) for details.
 
 ---
 
@@ -124,7 +124,7 @@ src/
     pdf/           # Superbill and tax report PDF generation (pdfkit)
     reports/       # CSV export logic
     audit.ts       # Append-only audit log helper
-    backup.ts      # Database backup
+    backup.ts      # Database backup and full archive export
     index.ts       # Main process entry
   preload/         # Context bridge
   renderer/src/    # React UI

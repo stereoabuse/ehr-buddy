@@ -205,6 +205,7 @@ export type AuditAction =
   | 'report_pdf'
   | 'report_csv'
   | 'backup_run'
+  | 'archive_export'
   | 'document_upload'
   | 'document_view'
   | 'document_download'

@@ -22,6 +22,7 @@ export const IPC = {
   REPORT_INCOME_PDF: 'report:incomePdf',
   REPORT_CSV: 'report:csv',
   BACKUP_RUN: 'backup:run',
+  BACKUP_FULL_ARCHIVE: 'backup:fullArchive',
   AUDIT_LIST: 'audit:list',
   AUDIT_CSV: 'audit:csv',
   DOCUMENTS_LIST: 'documents:list',

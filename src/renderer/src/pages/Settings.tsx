@@ -7,6 +7,7 @@ import { Icon } from '../components/Icon'
 
 export default function Settings() {
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
+  const [archiveStatus, setArchiveStatus] = useState<string | null>(null)
 
   const backup = useMutation({
     mutationFn: () => window.api.backup.run(),
@@ -14,7 +15,14 @@ export default function Settings() {
     onError: (e) => setBackupStatus(`Error: ${String(e)}`)
   })
 
+  const archive = useMutation({
+    mutationFn: () => window.api.backup.fullArchive(),
+    onSuccess: (r) => setArchiveStatus(r ? `Archive saved to ${r.path}` : 'Cancelled'),
+    onError: (e) => setArchiveStatus(`Error: ${String(e)}`)
+  })
+
   const isError = backupStatus?.startsWith('Error') ?? false
+  const isArchiveError = archiveStatus?.startsWith('Error') ?? false
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -51,6 +59,31 @@ export default function Settings() {
               disabled={backup.isPending}
             >
               {backup.isPending ? 'Backing up…' : 'Back up now'}
+            </Btn>
+          </div>
+          <div
+            className="flex items-center gap-4 px-[18px] py-4"
+            style={{ borderTop: '0.5px solid var(--color-divider)' }}
+          >
+            <div className="flex-1">
+              <p className="m-0 text-base text-body">
+                Export a full ZIP archive with the database, uploaded documents, CSV files, and a manifest.
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                The archive contains PHI and is not encrypted. Store it only on encrypted storage.
+              </p>
+              {archiveStatus && (
+                <p className={`mt-2 text-sm ${isArchiveError ? 'text-danger' : 'text-success'}`}>
+                  {archiveStatus}
+                </p>
+              )}
+            </div>
+            <Btn
+              icon="download"
+              onClick={() => { setArchiveStatus(null); archive.mutate() }}
+              disabled={archive.isPending}
+            >
+              {archive.isPending ? 'Exporting...' : 'Export full archive'}
             </Btn>
           </div>
         </Card>
