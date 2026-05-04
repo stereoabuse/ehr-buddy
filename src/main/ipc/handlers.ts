@@ -4,6 +4,7 @@ import { extname, join } from 'path'
 import { randomUUID } from 'crypto'
 import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
+import { practiceDateString } from '../../shared/date'
 import * as clientsRepo from '../db/repos/clients'
 import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
@@ -131,14 +132,6 @@ function documentPath(storedFilename: string): string {
   return join(documentsDir(), storedFilename)
 }
 
-// Local date (YYYY-MM-DD) so "today" matches the clinician's wall clock.
-function localDateStr(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
 function clinicianSigner(): { name: string; credentials: string | null } {
   const c = clinicianRepo.get()
   if (!c) throw new Error('Set up your clinician profile before signing notes.')
@@ -171,7 +164,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.CLIENTS_LIST, () => clientsRepo.list())
 
   ipcMain.handle(IPC.CLIENTS_ROSTER, () => {
-    const rows = clientsRepo.roster(localDateStr(new Date()))
+    const rows = clientsRepo.roster(practiceDateString())
     audit('roster_view', 'client', null, { count: rows.length })
     return rows
   })

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Session, SessionInput } from '@shared/types'
+import { practiceDateString } from '@shared/date'
 import { CPT_CODES } from '@shared/cpt-codes'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
@@ -11,6 +12,7 @@ import { Icon } from '../components/Icon'
 import { Icd10Picker, parseIcd10String, serializeIcd10List } from '../components/Icd10Picker'
 import { initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
+import { invalidateSessionDerivedQueries } from '../lib/query'
 import {
   EMPTY_STRUCTURED_NOTE,
   INTERVENTION_OPTIONS,
@@ -31,11 +33,6 @@ function calcDuration(start: string, end: string): number | null {
   if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null
   const minutes = eh * 60 + em - (sh * 60 + sm)
   return minutes > 0 ? minutes : null
-}
-
-function todayLocal(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function formatTimestamp(iso: string): string {
@@ -80,7 +77,7 @@ export default function SessionEditor() {
 
   const [form, setForm] = useState<SessionInput>({
     client_id: clientId ?? '',
-    session_date: todayLocal(),
+    session_date: practiceDateString(),
     start_time: '',
     end_time: '',
     cpt_code: '',
@@ -190,7 +187,7 @@ export default function SessionEditor() {
     mutationFn: (input: SessionInput) => window.api.sessions.upsert(input),
     onSuccess: () => {
       setSavedAt(new Date())
-      qc.invalidateQueries({ queryKey: ['sessions'] })
+      invalidateSessionDerivedQueries(qc)
     }
   })
 
@@ -206,7 +203,7 @@ export default function SessionEditor() {
     onSuccess: () => {
       setSignError(null)
       setShowSignModal(false)
-      qc.invalidateQueries({ queryKey: ['sessions'] })
+      invalidateSessionDerivedQueries(qc)
     },
     onError: (err) => setSignError(String(err))
   })
@@ -226,7 +223,7 @@ export default function SessionEditor() {
   const del = useMutation({
     mutationFn: (id: string) => window.api.sessions.delete(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['sessions'] })
+      invalidateSessionDerivedQueries(qc)
       navigate(`/clients/${clientId}`)
     }
   })
@@ -270,7 +267,7 @@ export default function SessionEditor() {
           body: form.note_body ?? '',
           note_format: form.note_format ?? 'STRUCTURED'
         })
-        qc.invalidateQueries({ queryKey: ['sessions'] })
+        invalidateSessionDerivedQueries(qc)
         setSignError(null)
         setShowSignModal(false)
       } else {

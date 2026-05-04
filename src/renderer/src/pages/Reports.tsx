@@ -1,21 +1,14 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import type { ReportArgs } from '@shared/api-types'
+import { practiceDateString, practiceYearStartString } from '@shared/date'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
 import { Field } from '../components/Field'
 
-function janFirst(): string {
-  return `${new Date().getFullYear()}-01-01`
-}
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 export default function Reports() {
-  const [fromDate, setFromDate] = useState(janFirst)
-  const [toDate, setToDate] = useState(todayStr)
+  const [fromDate, setFromDate] = useState(practiceYearStartString)
+  const [toDate, setToDate] = useState(practiceDateString)
   const [status, setStatus] = useState<string | null>(null)
 
   const pdfMut = useMutation({

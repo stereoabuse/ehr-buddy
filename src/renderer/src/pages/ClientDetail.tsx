@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { Client, ClientDocument, ClientInput, DocType, Session } from '@shared/types'
 import type { SuperbillArgs } from '@shared/api-types'
 import { CPT_CODES } from '@shared/cpt-codes'
+import { practiceDateString, practiceMonthStartString } from '@shared/date'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
 import { Pill } from '../components/Pill'
@@ -16,6 +17,7 @@ import { PaidToggle } from '../components/PaidToggle'
 import { fmtMoney, initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import { noteHasContent } from '../lib/structured-note'
+import { invalidateSessionDerivedQueries } from '../lib/query'
 
 const EMPTY: ClientInput = {
   first_name: '', last_name: '', dob: null,
@@ -278,7 +280,7 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
 
   const togglePaid = useMutation({
     mutationFn: ({ id, paid }: { id: string; paid: 0 | 1 }) => window.api.sessions.setPaid(id, paid),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] })
+    onSuccess: () => invalidateSessionDerivedQueries(qc)
   })
 
   const totalFee = sessions.reduce((s, x) => s + x.fee_cents, 0)
@@ -397,15 +399,13 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
     if (unpaid.length === 0) return
     if (!confirm(`Mark all ${unpaid.length} unpaid session${unpaid.length === 1 ? '' : 's'} as paid?`)) return
     Promise.all(unpaid.map((s) => window.api.sessions.setPaid(s.id, 1))).then(() => {
-      qc.invalidateQueries({ queryKey: ['sessions'] })
+      invalidateSessionDerivedQueries(qc)
     })
   }
 
   // Superbill date range — default to current month
-  const firstOfMonth = new Date()
-  firstOfMonth.setDate(1)
-  const [fromDate, setFromDate] = useState(firstOfMonth.toISOString().slice(0, 10))
-  const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
+  const [fromDate, setFromDate] = useState(practiceMonthStartString)
+  const [toDate, setToDate] = useState(practiceDateString)
   const [sbStatus, setSbStatus] = useState<string | null>(null)
 
   const inRange = useMemo(
@@ -540,7 +540,7 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
                       <Btn
                         size="sm"
                         variant="secondary"
-                        onClick={() => window.api.sessions.setPaid(s.id, 1).then(() => qc.invalidateQueries({ queryKey: ['sessions'] }))}
+                        onClick={() => window.api.sessions.setPaid(s.id, 1).then(() => invalidateSessionDerivedQueries(qc))}
                       >
                         Mark paid
                       </Btn>

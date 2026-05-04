@@ -21,6 +21,34 @@ app.setName('EHR Buddy')
 // produced from resources/ via electron-builder's buildResources, so we don't
 // need a runtime path.
 const devIconPath = join(__dirname, '../../resources/icon.png')
+const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['https:', 'http:', 'mailto:'])
+
+function openAllowedExternalUrl(rawUrl: string): void {
+  try {
+    const url = new URL(rawUrl)
+    if (ALLOWED_EXTERNAL_PROTOCOLS.has(url.protocol)) {
+      shell.openExternal(url.toString())
+    } else {
+      console.warn(`[security] blocked external URL protocol: ${url.protocol}`)
+    }
+  } catch {
+    console.warn(`[security] blocked invalid external URL: ${rawUrl}`)
+  }
+}
+
+function isSameDocumentNavigation(rawUrl: string, currentRawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl)
+    const current = new URL(currentRawUrl)
+    return (
+      url.origin === current.origin &&
+      url.pathname === current.pathname &&
+      url.search === current.search
+    )
+  } catch {
+    return false
+  }
+}
 
 function buildMacAppMenu(): void {
   const template: MenuItemConstructorOptions[] = [
@@ -100,9 +128,15 @@ function createWindow(): void {
     if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: 'right' })
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    openAllowedExternalUrl(url)
     return { action: 'deny' }
+  })
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isSameDocumentNavigation(url, mainWindow.webContents.getURL())) return
+    event.preventDefault()
+    openAllowedExternalUrl(url)
   })
 
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {

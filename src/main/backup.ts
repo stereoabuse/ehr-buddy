@@ -3,12 +3,13 @@ import { copyFileSync, createWriteStream, existsSync } from 'fs'
 import { join } from 'path'
 import archiver from 'archiver'
 import { getDb, dbPath } from './db/connection'
+import { practiceDateString } from '../shared/date'
 
 export async function runBackup(): Promise<string | null> {
   const db = getDb()
   db.pragma('wal_checkpoint(TRUNCATE)')
 
-  const defaultName = `ehrbuddy-backup-${new Date().toISOString().slice(0, 10)}.db`
+  const defaultName = `ehrbuddy-backup-${practiceDateString()}.db`
 
   const result = await dialog.showSaveDialog({
     title: 'Save Database Backup',
@@ -27,7 +28,7 @@ export async function runFullArchive(): Promise<string | null> {
   const db = getDb()
   db.pragma('wal_checkpoint(TRUNCATE)')
 
-  const defaultName = `ehrbuddy-archive-${new Date().toISOString().slice(0, 10)}.zip`
+  const defaultName = `ehrbuddy-archive-${practiceDateString()}.zip`
   const result = await dialog.showSaveDialog({
     title: 'Save Full Data Archive',
     defaultPath: join(app.getPath('documents'), defaultName),

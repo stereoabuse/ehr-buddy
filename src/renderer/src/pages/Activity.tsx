@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import type { AuditEntity } from '@shared/types'
+import { practiceDateString, practiceYearStartString } from '@shared/date'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
 import { Field } from '../components/Field'
@@ -9,18 +10,9 @@ const ENTITY_TYPES: (AuditEntity | '')[] = [
   '', 'app', 'client', 'session', 'clinician', 'superbill', 'report', 'backup'
 ]
 
-function janFirst(): string {
-  return `${new Date().getFullYear()}-01-01`
-}
-
-function todayStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 export default function Activity() {
-  const [fromDate, setFromDate] = useState(janFirst)
-  const [toDate, setToDate] = useState(todayStr)
+  const [fromDate, setFromDate] = useState(practiceYearStartString)
+  const [toDate, setToDate] = useState(practiceDateString)
   const [entity, setEntity] = useState<AuditEntity | ''>('')
   const [status, setStatus] = useState<string | null>(null)
 

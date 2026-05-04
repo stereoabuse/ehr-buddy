@@ -7,6 +7,7 @@ import type {
   SessionInput,
   SessionWithClient
 } from '../../../shared/types'
+import { practiceDateString } from '../../../shared/date'
 
 export function listByClient(clientId: string): Session[] {
   return getDb()
@@ -170,7 +171,7 @@ export function listAmendments(sessionId: string): SessionAmendment[] {
 }
 
 export function today(): SessionWithClient[] {
-  const todayStr = localDateStr(new Date())
+  const todayStr = practiceDateString()
   return getDb()
     .prepare(
       `SELECT s.*, c.first_name AS client_first_name, c.last_name AS client_last_name
@@ -203,11 +204,3 @@ export function allUnpaid(): SessionWithClient[] {
     .all() as SessionWithClient[]
 }
 
-// Local date (YYYY-MM-DD) so "today" matches the clinician's wall clock,
-// not UTC. Avoids the late-evening Pacific bug where today rolls forward.
-function localDateStr(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}

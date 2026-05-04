@@ -6,6 +6,7 @@ import * as clinicianRepo from '../db/repos/clinician'
 import * as clientsRepo from '../db/repos/clients'
 import * as sessionsRepo from '../db/repos/sessions'
 import type { Session, Client, Clinician } from '../../shared/types'
+import { practiceUsDateString } from '../../shared/date'
 
 const CPT_LABELS: Record<string, string> = {
   '90791': 'Psychiatric Diagnostic Evaluation',
@@ -88,7 +89,7 @@ function writePdf(
     doc.font('Helvetica-Bold').fontSize(16)
     doc.text('Superbill', right - 120, 50, { width: 120, align: 'right' })
     doc.font('Helvetica').fontSize(9)
-    doc.text(new Date().toLocaleDateString('en-US'), right - 120, 70, { width: 120, align: 'right' })
+    doc.text(practiceUsDateString(), right - 120, 70, { width: 120, align: 'right' })
 
     y += 8
     doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).stroke()
