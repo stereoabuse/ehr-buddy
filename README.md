@@ -65,7 +65,7 @@ Use the backup tools under Settings. **Back up now** copies the database file to
 
 ### Prerequisites
 
-- Node.js 18+ (LTS recommended)
+- Node.js 20+ (LTS recommended; CI uses Node 20)
 - npm 9+
 - On macOS: Xcode Command Line Tools (`xcode-select --install`)
 - On Windows: Visual Studio Build Tools (for native module compilation)
@@ -74,7 +74,7 @@ Use the backup tools under Settings. **Back up now** copies the database file to
 
 ```bash
 git clone <repo-url>
-cd ehr_buddy
+cd ehr-buddy
 npm install
 ```
 

@@ -31,7 +31,7 @@ If you need to rebuild release assets for an existing version, use GitHub:
 4. Enter the tag, such as `v0.3.0`.
 5. Review the resulting draft release.
 
-The workflow overwrites installer assets with the same name on the draft release.
+The workflow overwrites installer assets on the existing release for that tag, whether draft or published, and resets the title and notes. Re-running against a published release will mutate it.
 
 ## Signing
 
