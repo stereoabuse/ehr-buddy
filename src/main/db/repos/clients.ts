@@ -41,7 +41,7 @@ export function upsert(input: ClientInput): Client {
   const existing = input.id ? get(input.id) : undefined
   const id = input.id ?? randomUUID()
   const normalized = normalize(input)
-  const active = input.active ?? 1
+  const active = input.active ?? existing?.active ?? 1
 
   if (existing) {
     getDb().prepare(`

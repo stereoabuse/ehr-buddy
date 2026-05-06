@@ -35,7 +35,7 @@ const clientUpsertSchema = z.object({
   insurance_group_id: z.string().nullable().optional(),
   insurance_plan_holder_name: z.string().nullable().optional(),
   insurance_plan_holder_dob: z.string().nullable().optional(),
-  active: z.number().optional()
+  active: z.number().int().min(0).max(1).optional()
 })
 
 const clinicianUpsertSchema = z.object({

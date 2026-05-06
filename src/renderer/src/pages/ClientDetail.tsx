@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { Client, ClientDocument, ClientInput, DocType, Session } from '@shared/types'
@@ -65,6 +65,7 @@ function NewClientView() {
 
 function ClientChartView({ clientId }: { clientId: string }) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const clientQuery = useQuery({ queryKey: ['clients', clientId], queryFn: () => window.api.clients.get(clientId) })
   const sessionsQuery = useQuery({ queryKey: ['sessions', 'byClient', clientId], queryFn: () => window.api.sessions.listByClient(clientId) })
 
@@ -74,6 +75,17 @@ function ClientChartView({ clientId }: { clientId: string }) {
   const docsQuery = useQuery({
     queryKey: ['documents', clientId],
     queryFn: () => window.api.documents.list(clientId)
+  })
+
+  const reactivate = useMutation({
+    mutationFn: () => {
+      if (!clientQuery.data) throw new Error('Client not loaded')
+      return window.api.clients.upsert({ ...clientQuery.data, active: 1 })
+    },
+    onSuccess: (client) => {
+      qc.invalidateQueries({ queryKey: ['clients'] })
+      qc.setQueryData(['clients', client.id], client)
+    }
   })
 
   if (clientQuery.isLoading) {
@@ -155,6 +167,16 @@ function ClientChartView({ clientId }: { clientId: string }) {
           {tab === 'overview' && !editing && (
             <Btn variant="secondary" icon="edit" onClick={() => setEditing(true)}>
               Edit
+            </Btn>
+          )}
+          {!isActive && !editing && (
+            <Btn
+              variant="secondary"
+              icon="check"
+              onClick={() => reactivate.mutate()}
+              disabled={reactivate.isPending}
+            >
+              {reactivate.isPending ? 'Reactivating...' : 'Reactivate'}
             </Btn>
           )}
           <Btn icon="plus" onClick={() => navigate(`/clients/${clientId}/sessions/new`)}>
@@ -778,10 +800,20 @@ function InfoForm({
   })
   const [form, setForm] = useState<ClientInput>(EMPTY)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const loadedClientId = useRef<string | undefined>(undefined)
 
   useEffect(() => {
-    if (clientQuery.data) setForm(clientQuery.data)
-  }, [clientQuery.data])
+    if (isNew) {
+      if (loadedClientId.current !== undefined) {
+        loadedClientId.current = undefined
+        setForm(EMPTY)
+      }
+      return
+    }
+    if (!clientQuery.data || loadedClientId.current === clientQuery.data.id) return
+    loadedClientId.current = clientQuery.data.id
+    setForm(clientQuery.data)
+  }, [clientQuery.data, isNew])
 
   const save = useMutation({
     mutationFn: (input: ClientInput) => window.api.clients.upsert(input),
@@ -798,6 +830,19 @@ function InfoForm({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] })
       navigate('/clients')
+    }
+  })
+
+  const reactivate = useMutation({
+    mutationFn: () => {
+      if (!clientQuery.data) throw new Error('Client not loaded')
+      return window.api.clients.upsert({ ...clientQuery.data, active: 1 })
+    },
+    onSuccess: (client) => {
+      setForm(client)
+      qc.invalidateQueries({ queryKey: ['clients'] })
+      qc.setQueryData(['clients', client.id], client)
+      if (onDone) onDone()
     }
   })
 
@@ -837,6 +882,11 @@ function InfoForm({
     if (!clientId) return
     if (confirm(`Archive ${persistedFullName()}? They will be hidden from the client list.`))
       del.mutate(clientId)
+  }
+
+  function handleReactivate() {
+    if (!clientId) return
+    reactivate.mutate()
   }
 
   function handlePermanentDelete() {
@@ -896,6 +946,9 @@ function InfoForm({
       </Disclosure>
 
       {save.error && <p className="text-sm text-danger">Save failed: {String(save.error)}</p>}
+      {reactivate.error && (
+        <p className="text-sm text-danger">Reactivate failed: {String(reactivate.error)}</p>
+      )}
       {permanentDel.error && (
         <p className="text-sm text-danger">Permanent delete failed: {String(permanentDel.error)}</p>
       )}
@@ -914,9 +967,21 @@ function InfoForm({
         </Btn>
         {!isNew && (
           <div className="ml-auto flex items-center gap-2">
-            <Btn type="button" variant="danger" onClick={handleDelete} disabled={del.isPending}>
-              {del.isPending ? 'Archiving...' : 'Archive'}
-            </Btn>
+            {clientQuery.data?.active === 0 ? (
+              <Btn
+                type="button"
+                variant="secondary"
+                icon="check"
+                onClick={handleReactivate}
+                disabled={reactivate.isPending}
+              >
+                {reactivate.isPending ? 'Reactivating...' : 'Reactivate'}
+              </Btn>
+            ) : (
+              <Btn type="button" variant="danger" onClick={handleDelete} disabled={del.isPending}>
+                {del.isPending ? 'Archiving...' : 'Archive'}
+              </Btn>
+            )}
             <Btn
               type="button"
               variant="danger"
