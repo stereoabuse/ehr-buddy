@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url'
 import { registerIpcHandlers } from './ipc/handlers'
 import { getDb, closeDb } from './db/connection'
 import { audit } from './audit'
+import { migrateLegacyWindowsUserData } from './migrate-legacy-userdata'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -164,6 +165,7 @@ if (!gotLock) {
       app.dock?.setIcon(devIconPath)
     }
     if (process.platform === 'darwin') buildMacAppMenu()
+    migrateLegacyWindowsUserData()
     getDb()
     audit('app_start', 'app', null, { version: app.getVersion() })
     registerIpcHandlers()
