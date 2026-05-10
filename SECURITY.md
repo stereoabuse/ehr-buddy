@@ -37,8 +37,8 @@ All data lives in a single SQLite database file:
 
 | OS      | Path                                                    |
 |---------|---------------------------------------------------------|
-| Windows | `%APPDATA%\EHR Buddy\ehrbuddy.db`                      |
-| macOS   | `~/Library/Application Support/ehr-buddy/ehrbuddy.db`   |
+| Windows | `%APPDATA%\EHR Buddy\ehrbuddy.db`                       |
+| macOS   | `~/Library/Application Support/EHR Buddy/ehrbuddy.db`   |
 
 This file contains client names, contact information, diagnoses, session notes, fee history, and clinician details.
 
@@ -137,7 +137,7 @@ When you upload a consent form (or any document) for a client, the file is copie
 | OS      | Path                                                              |
 |---------|-------------------------------------------------------------------|
 | Windows | `%APPDATA%\EHR Buddy\documents\`                                  |
-| macOS   | `~/Library/Application Support/ehr-buddy/documents/`              |
+| macOS   | `~/Library/Application Support/EHR Buddy/documents/`              |
 
 Files are stored unencrypted on disk, with the same threat model as the SQLite database — disk encryption is your control. Only metadata (label, type, size, original filename) lives in the database; the bytes live in this folder, named with a random UUID + the original extension.
 

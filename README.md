@@ -8,21 +8,17 @@
 
 ## What it does
 
-- **Client roster** -- searchable, filterable list of clients with phone, primary diagnosis, last-seen date, unpaid balance, active status, and unsigned-note counts
-- **Client records** -- full contact info, emergency contact, and insurance details on the per-client detail page
-- **Diagnoses** -- ICD-10 autocomplete picker covering chapter F (mental, behavioral, neurodevelopmental) and chapter Z (factors influencing health status); refreshable from the NIH/NLM clinical-tables API
-- **Progress notes** -- structured form covering observations (cognitive functioning, affect, mood, interpersonal, functional status), current functioning, content discussed, interventions, treatment plan, plan, risk factors, medications, and recommendation, with CPT code and fee. Unsigned legacy DAP / free-text notes are migrated into the structured form on open; signed legacy notes remain read-only in their original format
-- **Sign off & lock notes** -- finalize a progress note; later changes are recorded as dated, append-only amendments
-- **Per-client documents** -- upload PDFs or images (PDF, PNG, JPG, HEIC) tagged as consent, ROI, intake, or other; stored under the app's user-data folder
-- **Clinician profile** -- your credentials, NPI, tax ID, and default fee schedule
-- **Inline payment tracking** -- paid toggle on each client's Sessions tab, plus a per-client Billing tab showing unpaid balance and bulk "mark all paid"
-- **Superbill PDFs** -- one-click generation for client reimbursement
-- **Income summary (PDF)** -- date-ranged report with per-client totals, CPT breakdown, and grand totals
-- **Session detail (CSV)** -- date-ranged export with one row per session (date, client, CPT, ICD-10, fee, paid) plus a totals row, suitable for Excel or an accountant
-- **Activity log** -- append-only record of every read, edit, and export of patient data (HIPAA §164.312(b)), surfaced under Settings, exportable to CSV
-- **Backups and full archive export** -- copy the SQLite database, or export a ZIP containing the database, uploaded documents, CSVs, and a manifest
+- **Client roster & records** -- searchable list with diagnosis, last-seen, unpaid balance, and unsigned-note counts; per-client contact, emergency, and insurance details
+- **Progress notes** -- structured form covering observations (cognitive, affect, mood, interpersonal, functional), content discussed, interventions, treatment plan, risk, and medications, with CPT code and fee. Sign-off locks the note; later changes are recorded as dated, append-only amendments
+- **Diagnoses** -- ICD-10 autocomplete for chapters F and Z, refreshable from the NIH/NLM clinical-tables API
+- **Per-client documents** -- upload PDFs or images (PDF, PNG, JPG, HEIC) tagged as consent, ROI, intake, or other
+- **Clinician profile** -- credentials, NPI, tax ID, and default fee schedule
+- **Billing** -- inline paid toggle on the Sessions tab and per-client Billing tab with unpaid balance and bulk "mark all paid"
+- **Reports** -- superbill PDFs, date-ranged income summary PDF (per-client totals + CPT breakdown), and session-detail CSV
+- **Audit log** -- append-only record of every read, edit, and export of patient data (HIPAA §164.312(b)), exportable to CSV
+- **Backups** -- copy the SQLite database, or export a ZIP archive of database + documents + CSVs + manifest
 
-There is no cloud sync, no user authentication, no payment processing, no insurance claim submission, and no third-party services of any kind. EHR Buddy never makes a network request. The app is designed for a single clinician on a single machine.
+No cloud sync, authentication, payments, claims, or third-party services. EHR Buddy never makes a network request. Designed for a single clinician on a single machine.
 
 ---
 
@@ -32,17 +28,15 @@ Download the latest installer from the **Releases** page in the sidebar.
 
 ### Windows
 
-1. Download **EHR Buddy Setup x.x.x.exe** from Releases.
-2. Run the installer. Choose an install location or accept the default.
-3. **SmartScreen warning:** Windows will show a "Windows protected your PC" dialog on first launch because the app is not code-signed. Click **"More info"**, then click **"Run anyway"**. This is normal for v1.
-4. Launch EHR Buddy from your Start menu or desktop shortcut.
+1. Download **EHR Buddy Setup x.x.x.exe** and run it.
+2. **SmartScreen warning:** Windows will show "Windows protected your PC" because the app is not code-signed. Click **More info > Run anyway**.
+3. Launch from the Start menu.
 
 ### macOS
 
-1. Download **EHR Buddy-x.x.x.dmg** from Releases.
-2. Open the DMG and drag EHR Buddy to your Applications folder.
-3. **Gatekeeper warning:** macOS will block the app on first launch. Right-click (or Control-click) the app and choose **Open**, then click **Open** in the dialog.
-4. Launch EHR Buddy from Applications.
+1. Download the **.dmg**, open it, and drag EHR Buddy to Applications.
+2. **Gatekeeper warning:** right-click the app, choose **Open**, then click **Open** in the dialog. (One-time only.)
+3. Launch from Applications.
 
 ### Where is my data?
 
@@ -50,14 +44,14 @@ The database is a single SQLite file:
 
 | OS      | Path                                                    |
 |---------|---------------------------------------------------------|
-| Windows | `%APPDATA%\EHR Buddy\ehrbuddy.db`                      |
-| macOS   | `~/Library/Application Support/ehr-buddy/ehrbuddy.db`   |
+| Windows | `%APPDATA%\EHR Buddy\ehrbuddy.db`                       |
+| macOS   | `~/Library/Application Support/EHR Buddy/ehrbuddy.db`   |
 
-**Uninstalling the app does NOT delete this file.** Your patient data is preserved until you manually remove it. See [SECURITY.md](SECURITY.md) for guidance on handling PHI.
+**Uninstalling does NOT delete this file** -- patient data is preserved until you remove it manually. See [SECURITY.md](SECURITY.md) for PHI handling guidance.
 
 ### Backups
 
-Use the backup tools under Settings. **Back up now** copies the database file to a location you select. **Export full archive** creates a ZIP with the database, uploaded documents, CSV exports, and a manifest. Store backups on encrypted storage. See [SECURITY.md](SECURITY.md) for details.
+Use the backup tools under Settings. **Back up now** copies the database file. **Export full archive** creates a ZIP with the database, uploaded documents, CSV exports, and a manifest. Store backups on encrypted storage.
 
 ---
 
@@ -65,91 +59,53 @@ Use the backup tools under Settings. **Back up now** copies the database file to
 
 ### Prerequisites
 
-- Node.js 20+ (LTS recommended; CI uses Node 20)
-- npm 9+
-- On macOS: Xcode Command Line Tools (`xcode-select --install`)
-- On Windows: Visual Studio Build Tools (for native module compilation)
+- Node.js 20+ and npm 9+
+- macOS: Xcode Command Line Tools (`xcode-select --install`)
+- Windows: Visual Studio Build Tools (for native module compilation)
 
 ### Setup
 
 ```bash
 git clone <repo-url>
 cd ehr-buddy
-npm install
+npm install   # postinstall rebuilds better-sqlite3 for Electron
 ```
 
-The `postinstall` script runs `electron-rebuild` to compile `better-sqlite3` for the local Electron version.
-
-### Development
+### Common scripts
 
 ```bash
-npm run dev
+npm run dev           # electron-vite dev with renderer hot reload
+npm run typecheck     # tsc --noEmit
+npm run icd10:refresh # regenerate the bundled F/Z ICD-10 list from CMS data
+npm run dist:mac      # build .dmg (macOS only)
+npm run dist:win      # build NSIS .exe (Windows only)
 ```
 
-This starts `electron-vite` in dev mode with hot reload for the renderer process.
-
-### Type checking
-
-```bash
-npm run typecheck
-```
-
-### Refreshing the ICD-10 code list
-
-The bundled F/Z code list is generated from the CMS valid-codes file. To refresh it:
-
-```bash
-npm run icd10:refresh
-```
-
-### Building distributables
-
-```bash
-# macOS (produces .dmg)
-npm run dist:mac
-
-# Windows (produces .exe NSIS installer)
-npm run dist:win
-```
-
-Output goes to the `dist/` directory. Cross-compilation is not supported -- build on the target OS.
-
-For GitHub release builds, see [RELEASING.md](RELEASING.md). The release workflow builds the Windows installer and macOS DMG on GitHub-hosted runners and creates a draft release.
+Distributables land in `dist/`. Cross-compilation is not supported -- build on the target OS. For tagged GitHub releases, see [RELEASING.md](RELEASING.md).
 
 ### Project structure
 
 ```
 src/
-  main/            # Electron main process
-    db/            # SQLite connection, migrations, repositories
-    ipc/           # IPC handler registration
-    pdf/           # Superbill and tax report PDF generation (pdfkit)
-    reports/       # CSV export logic
-    audit.ts       # Append-only audit log helper
-    backup.ts      # Database backup and full archive export
-    index.ts       # Main process entry
-  preload/         # Context bridge
-  renderer/src/    # React UI
-    components/    # Shared UI components (Sidebar, TopBar, Icd10Picker, PaidToggle, etc.)
-    pages/         # Route pages (Dashboard, ClientList, ClientDetail, SessionEditor, Reports, Settings, Activity, ClinicianProfile)
-    lib/           # Renderer-side utilities
-    styles/        # Tailwind globals
-  shared/          # Types shared between main and renderer
-scripts/           # Dev/maintenance scripts (e.g. ICD-10 refresh)
+  main/         # Electron main: db/, ipc/, pdf/, reports/, audit, backup, migration
+  preload/      # Context bridge
+  renderer/src/ # React UI: components/, pages/, lib/, styles/
+  shared/       # Types shared between main and renderer
+scripts/        # Dev/maintenance scripts
 ```
 
 ### Stack
 
-| Layer     | Technology                      |
-|-----------|---------------------------------|
-| Shell     | Electron 30                     |
-| UI        | React 18 + React Router 6      |
-| Styling   | Tailwind CSS 3                  |
-| State     | TanStack Query 5                |
-| Database  | better-sqlite3 (SQLite)         |
-| PDF       | pdfkit                          |
-| Validation| Zod                             |
-| Build     | electron-vite + electron-builder|
+| Layer     | Technology                       |
+|-----------|----------------------------------|
+| Shell     | Electron 30                      |
+| UI        | React 18 + React Router 6        |
+| Styling   | Tailwind CSS 3                   |
+| State     | TanStack Query 5                 |
+| Database  | better-sqlite3 (SQLite)          |
+| PDF       | pdfkit                           |
+| Validation| Zod                              |
+| Build     | electron-vite + electron-builder |
 
 ---
 
