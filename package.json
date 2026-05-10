@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && electron-vite build",
     "start": "electron-vite preview",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac --publish never",
+    "dist:win": "npm run build && electron-builder --win --publish never",
     "icd10:refresh": "node scripts/fetch-icd10.mjs",
     "postinstall": "electron-rebuild -f -w better-sqlite3 && node scripts/patch-electron-name.mjs"
   },
