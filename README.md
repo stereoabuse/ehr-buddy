@@ -4,13 +4,13 @@
 
 <h1 align="center">EHR Buddy</h1>
 
-<p align="center">Minimal local EHR for solo mental health practice.<br/>No cloud, no accounts, no subscriptions — just a desktop app that stores everything on your machine.</p>
+<p align="center">Minimal local EHR for solo mental health practice.</p>
 
 ## What it does
 
 - **Client roster & records** -- searchable list with diagnosis, last-seen, unpaid balance, and unsigned-note counts; per-client contact, emergency, and insurance details
-- **Progress notes** -- structured form covering observations (cognitive, affect, mood, interpersonal, functional), content discussed, interventions, treatment plan, risk, and medications, with CPT code and fee. Sign-off locks the note; later changes are recorded as dated, append-only amendments
-- **Diagnoses** -- ICD-10 autocomplete for chapters F and Z, refreshable from the NIH/NLM clinical-tables API
+- **Progress notes** -- structured form covering observations, content, interventions, treatment plan, risk, and medications, with CPT code and fee. Sign-off locks the note; later changes are recorded as dated, append-only amendments
+- **Diagnoses** -- ICD-10 autocomplete
 - **Per-client documents** -- upload PDFs or images (PDF, PNG, JPG, HEIC) tagged as consent, ROI, intake, or other
 - **Clinician profile** -- credentials, NPI, tax ID, and default fee schedule
 - **Billing** -- inline paid toggle on the Sessions tab and per-client Billing tab with unpaid balance and bulk "mark all paid"
@@ -18,7 +18,7 @@
 - **Audit log** -- append-only record of every read, edit, and export of patient data (HIPAA §164.312(b)), exportable to CSV
 - **Backups** -- copy the SQLite database, or export a ZIP archive of database + documents + CSVs + manifest
 
-No cloud sync, authentication, payments, claims, or third-party services. EHR Buddy never makes a network request. Designed for a single clinician on a single machine.
+No cloud sync, authentication, payments, claims, or third-party services so EHR Buddy never makes a network request.
 
 ---
 
@@ -57,7 +57,7 @@ Use the backup tools under Settings. **Back up now** copies the database file. *
 
 ## For developers
 
-### Prerequisites
+### Prereqs
 
 - Node.js 20+ and npm 9+
 - macOS: Xcode Command Line Tools (`xcode-select --install`)
