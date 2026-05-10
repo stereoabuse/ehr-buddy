@@ -138,7 +138,7 @@ export default function Settings() {
           <SectionHeader title="About" />
           <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-2 px-[18px] py-4 text-base">
             <dt className="font-medium text-muted">App</dt>
-            <dd className="text-ink">EHR Buddy v0.2.0</dd>
+            <dd className="text-ink">EHR Buddy v0.3.0</dd>
             <dt className="font-medium text-muted">Data</dt>
             <dd className="text-body">
               Stored locally in your user data folder. Disk encryption strongly recommended — see SECURITY.md.
