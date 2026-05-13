@@ -800,6 +800,7 @@ function InfoForm({
   })
   const [form, setForm] = useState<ClientInput>(EMPTY)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false)
   const loadedClientId = useRef<string | undefined>(undefined)
 
   useEffect(() => {
@@ -854,6 +855,7 @@ function InfoForm({
       qc.invalidateQueries({ queryKey: ['sessions'] })
       qc.invalidateQueries({ queryKey: ['documents'] })
       qc.removeQueries({ queryKey: ['clients', clientId] })
+      setPermanentDeleteOpen(false)
       navigate('/clients')
     }
   })
@@ -891,22 +893,7 @@ function InfoForm({
 
   function handlePermanentDelete() {
     if (!clientId) return
-    const fullName = persistedFullName()
-    const typed = prompt([
-      `Permanently delete ${fullName}?`,
-      '',
-      'This removes the client, sessions, notes, amendments, billing records, and uploaded documents from this device.',
-      'The audit log entry will remain.',
-      '',
-      `Type ${fullName} to confirm.`
-    ].join('\n'))
-    if (typed === null) return
-    if (typed !== fullName) {
-      alert('Permanent delete cancelled. The typed name did not match exactly.')
-      return
-    }
-    if (!confirm(`Last chance: permanently delete ${fullName}? This cannot be undone.`)) return
-    permanentDel.mutate({ id: clientId, confirmation: typed })
+    setPermanentDeleteOpen(true)
   }
 
   return (
@@ -945,12 +932,10 @@ function InfoForm({
         </div>
       </Disclosure>
 
-      {save.error && <p className="text-sm text-danger">Save failed: {String(save.error)}</p>}
-      {reactivate.error && (
-        <p className="text-sm text-danger">Reactivate failed: {String(reactivate.error)}</p>
-      )}
+      {save.error && <ErrorAlert title="Save failed" error={save.error} />}
+      {reactivate.error && <ErrorAlert title="Reactivate failed" error={reactivate.error} />}
       {permanentDel.error && (
-        <p className="text-sm text-danger">Permanent delete failed: {String(permanentDel.error)}</p>
+        <ErrorAlert title="Permanent delete failed" error={permanentDel.error} />
       )}
 
       <div className="flex items-center gap-3 pt-4" style={{ borderTop: '0.5px solid var(--color-hairline)' }}>
@@ -993,7 +978,103 @@ function InfoForm({
           </div>
         )}
       </div>
+
+      {permanentDeleteOpen && clientId && (
+        <PermanentDeleteModal
+          fullName={persistedFullName()}
+          pending={permanentDel.isPending}
+          onCancel={() => setPermanentDeleteOpen(false)}
+          onConfirm={(typed) =>
+            permanentDel.mutate({ id: clientId, confirmation: typed })
+          }
+        />
+      )}
     </form>
+  )
+}
+
+function ErrorAlert({ title, error }: { title: string; error: unknown }) {
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    <div
+      role="alert"
+      className="rounded-md bg-danger-soft px-4 py-3 text-sm text-danger"
+      style={{ border: '0.5px solid var(--color-danger)' }}
+    >
+      <div className="font-semibold">{title}</div>
+      <div className="mt-1 break-words">{message}</div>
+    </div>
+  )
+}
+
+function PermanentDeleteModal({
+  fullName,
+  pending,
+  onCancel,
+  onConfirm
+}: {
+  fullName: string
+  pending: boolean
+  onCancel: () => void
+  onConfirm: (typed: string) => void
+}) {
+  const [typed, setTyped] = useState('')
+  const matches = typed === fullName
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(20,20,20,0.45)' }}
+      onClick={pending ? undefined : onCancel}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="mx-4 w-full max-w-md rounded-lg bg-surface p-5 shadow-lg"
+        style={{ border: '0.5px solid var(--color-hairline)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3
+          className="m-0 text-lg font-semibold text-ink"
+          style={{ fontFamily: 'var(--font-head)' }}
+        >
+          Permanently delete {fullName}?
+        </h3>
+        <p className="mt-2 text-sm text-body">
+          This removes the client, sessions, notes, amendments, billing records, and uploaded
+          documents from this device. The audit log entry will remain. This cannot be undone.
+        </p>
+        <label className="mt-4 block">
+          <span className="text-sm font-medium text-body">
+            Type <span className="font-semibold text-ink">{fullName}</span> to confirm
+          </span>
+          <input
+            autoFocus
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            disabled={pending}
+            className="mt-1 block h-9 w-full rounded-md px-3 text-base text-ink outline-none disabled:cursor-not-allowed disabled:opacity-70"
+            style={{
+              border: '0.5px solid var(--color-hairline)',
+              background: 'var(--color-surface)'
+            }}
+          />
+        </label>
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <Btn type="button" variant="secondary" onClick={onCancel} disabled={pending}>
+            Cancel
+          </Btn>
+          <Btn
+            type="button"
+            variant="danger"
+            disabled={!matches || pending}
+            onClick={() => onConfirm(typed)}
+          >
+            {pending ? 'Deleting...' : 'Delete forever'}
+          </Btn>
+        </div>
+      </div>
+    </div>
   )
 }
 
