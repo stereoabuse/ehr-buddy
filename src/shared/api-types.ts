@@ -28,6 +28,10 @@ export interface SuperbillArgs {
   toDate: string
 }
 
+export interface NoteExportArgs {
+  sessionId: string
+}
+
 export interface ReportArgs {
   fromDate: string
   toDate: string
@@ -77,6 +81,9 @@ export interface Api {
   }
   superbill: {
     generate: (args: SuperbillArgs) => Promise<{ path: string } | null>
+  }
+  notes: {
+    exportPdf: (args: NoteExportArgs) => Promise<{ path: string } | null>
   }
   reports: {
     incomePdf: (args: ReportArgs) => Promise<{ path: string } | null>

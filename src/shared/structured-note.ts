@@ -1,12 +1,12 @@
 // Structured progress note schema. Stored as JSON inside session.note_body
-// when session.note_format === 'STRUCTURED'. Renderer-side only — the main
-// process treats note_body as opaque text.
+// when session.note_format === 'STRUCTURED'. Shared between renderer (form
+// rendering) and main process (PDF export) — keep it dependency-free.
 //
 // Versioning: bump `schemaVersion` if you change the shape; older saved notes
 // are passed through `parseStructuredNote` which fills missing fields with
 // defaults so old data keeps loading.
 
-import type { NoteFormat } from '@shared/types'
+import type { NoteFormat } from './types'
 
 export interface StructuredObservations {
   cognitive_functioning: string
@@ -48,6 +48,14 @@ export const OBSERVATION_OPTIONS: Record<keyof StructuredObservations, string[]>
   mood: ['Euthymic', 'Depressed', 'Dysphoric', 'Anxious', 'Angry', 'Euphoric'],
   interpersonal: ['Interactive', 'Intermittently Interactive', 'Guarded', 'Withdrawn', 'Hostile'],
   functional_status: ['Intact', 'Impaired', 'Variably Impaired']
+}
+
+export const OBSERVATION_LABELS: Record<keyof StructuredObservations, string> = {
+  cognitive_functioning: 'Cognitive functioning',
+  affect: 'Affect',
+  mood: 'Mood',
+  interpersonal: 'Interpersonal',
+  functional_status: 'Functional status'
 }
 
 export const RISK_FACTOR_OPTIONS: { id: string; label: string }[] = [

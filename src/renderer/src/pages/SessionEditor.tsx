@@ -24,7 +24,7 @@ import {
   serializeStructuredNote,
   type Recommendation,
   type StructuredNote
-} from '../lib/structured-note'
+} from '@shared/structured-note'
 
 function calcDuration(start: string, end: string): number | null {
   if (!start || !end) return null
@@ -94,6 +94,7 @@ export default function SessionEditor() {
   const [showSignModal, setShowSignModal] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
   const [amendError, setAmendError] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
 
   // Hydrate from server. Auto-converts unsigned legacy DAP/FREE → STRUCTURED
@@ -218,6 +219,15 @@ export default function SessionEditor() {
       qc.invalidateQueries({ queryKey: ['sessions', sessionId, 'amendments'] })
     },
     onError: (err) => setAmendError(String(err))
+  })
+
+  const exportPdf = useMutation({
+    mutationFn: () => {
+      if (!sessionId) throw new Error('Save and sign the note before exporting.')
+      return window.api.notes.exportPdf({ sessionId })
+    },
+    onSuccess: () => setExportError(null),
+    onError: (err) => setExportError(String(err))
   })
 
   const del = useMutation({
@@ -375,6 +385,16 @@ export default function SessionEditor() {
             Add Amendment
           </Btn>
         )}
+        {isSigned && (
+          <Btn
+            variant="secondary"
+            icon="download"
+            onClick={() => exportPdf.mutate()}
+            disabled={exportPdf.isPending}
+          >
+            {exportPdf.isPending ? 'Exporting…' : 'Export PDF'}
+          </Btn>
+        )}
       </div>
 
       {/* Locked banner */}
@@ -500,6 +520,7 @@ export default function SessionEditor() {
 
             {save.error && <p className="text-sm text-danger">Save failed: {String(save.error)}</p>}
             {signError && <p className="text-sm text-danger">Sign failed: {signError}</p>}
+            {exportError && <p className="text-sm text-danger">Export failed: {exportError}</p>}
 
             {!isNew && !isSigned && (
               <div className="pt-2">

@@ -86,6 +86,8 @@ export interface Clinician {
   phone: string | null
   email: string | null
   default_fees_json: string | null
+  /** Base64-encoded signature image (PNG or JPEG). Embedded into signed PDF exports. */
+  signature_image_base64: string | null
   updated_at: string
 }
 
@@ -105,6 +107,8 @@ export interface ClinicianInput {
   email?: string | null
   /** CPT code -> fee in cents */
   default_fees?: Record<string, number> | null
+  /** Base64-encoded signature image (PNG or JPEG), no data URL prefix. Pass null to clear. */
+  signature_image_base64?: string | null
 }
 
 export type NoteFormat = 'DAP' | 'FREE' | 'STRUCTURED'
@@ -202,6 +206,7 @@ export type AuditAction =
   | 'session_set_paid'
   | 'clinician_update'
   | 'superbill_generate'
+  | 'note_export_pdf'
   | 'report_pdf'
   | 'report_csv'
   | 'backup_run'

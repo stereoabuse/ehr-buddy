@@ -28,6 +28,7 @@ export function upsert(input: ClinicianInput): Clinician {
       input.default_fees && Object.keys(input.default_fees).length > 0
         ? JSON.stringify(input.default_fees)
         : null,
+    signature_image_base64: input.signature_image_base64 ?? null,
     updated_at: now
   }
 
@@ -43,6 +44,7 @@ export function upsert(input: ClinicianInput): Clinician {
           city = @city, state = @state, postal_code = @postal_code,
           phone = @phone, email = @email,
           default_fees_json = @default_fees_json,
+          signature_image_base64 = @signature_image_base64,
           updated_at = @updated_at
         WHERE id = 'singleton'`
       )
@@ -55,13 +57,13 @@ export function upsert(input: ClinicianInput): Clinician {
           practice_name,
           address_line1, address_line2, city, state, postal_code,
           phone, email,
-          default_fees_json, updated_at
+          default_fees_json, signature_image_base64, updated_at
         ) VALUES (
           @id, @full_name, @credentials, @npi, @license_number, @tax_id,
           @practice_name,
           @address_line1, @address_line2, @city, @state, @postal_code,
           @phone, @email,
-          @default_fees_json, @updated_at
+          @default_fees_json, @signature_image_base64, @updated_at
         )`
       )
       .run(row)

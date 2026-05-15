@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ClinicianInput } from '@shared/types'
 import { CPT_CODES } from '@shared/cpt-codes'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
 import { Field } from '../components/Field'
+
+const SIGNATURE_MAX_BYTES = 1_000_000
+const SIGNATURE_ACCEPT = 'image/png,image/jpeg'
 
 const EMPTY: ClinicianInput = {
   full_name: '',
@@ -20,7 +23,8 @@ const EMPTY: ClinicianInput = {
   postal_code: null,
   phone: null,
   email: null,
-  default_fees: {}
+  default_fees: {},
+  signature_image_base64: null
 }
 
 export default function ClinicianProfile() {
@@ -33,6 +37,8 @@ export default function ClinicianProfile() {
   const [form, setForm] = useState<ClinicianInput>(EMPTY)
   const [feeStrings, setFeeStrings] = useState<Record<string, string>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [signatureError, setSignatureError] = useState<string | null>(null)
+  const signatureInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (clinicianQuery.data) {
@@ -59,7 +65,8 @@ export default function ClinicianProfile() {
         postal_code: c.postal_code,
         phone: c.phone,
         email: c.email,
-        default_fees: feeCents
+        default_fees: feeCents,
+        signature_image_base64: c.signature_image_base64
       })
     }
   }, [clinicianQuery.data])
@@ -71,6 +78,42 @@ export default function ClinicianProfile() {
 
   function update<K extends keyof ClinicianInput>(key: K, value: ClinicianInput[K]) {
     setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  function handleSignatureChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setSignatureError(null)
+    const file = e.target.files?.[0]
+    // Reset the input so picking the same file again still fires onChange
+    e.target.value = ''
+    if (!file) return
+
+    if (file.type !== 'image/png' && file.type !== 'image/jpeg') {
+      setSignatureError('Signature must be a PNG or JPEG image.')
+      return
+    }
+    if (file.size > SIGNATURE_MAX_BYTES) {
+      setSignatureError('Signature image is too large (max 1MB).')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') {
+        setSignatureError('Could not read the selected file.')
+        return
+      }
+      const commaIdx = result.indexOf(',')
+      const base64 = commaIdx >= 0 ? result.slice(commaIdx + 1) : result
+      update('signature_image_base64', base64)
+    }
+    reader.onerror = () => setSignatureError('Could not read the selected file.')
+    reader.readAsDataURL(file)
+  }
+
+  function clearSignature() {
+    setSignatureError(null)
+    update('signature_image_base64', null)
   }
 
   function handleSave(e: React.FormEvent) {
@@ -113,6 +156,66 @@ export default function ClinicianProfile() {
           <Field label="Tax ID" placeholder="EIN recommended" value={form.tax_id ?? ''} onChange={(e) => update('tax_id', e.target.value || null)} />
           <Field label="Practice name" value={form.practice_name ?? ''} onChange={(e) => update('practice_name', e.target.value || null)} />
         </Section>
+
+        <Card padding={0}>
+          <div
+            className="px-[18px] py-3.5"
+            style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
+          >
+            <h3 className="m-0 text-md font-semibold text-ink" style={{ fontFamily: 'var(--font-head)' }}>
+              Signature
+            </h3>
+            <p className="mt-1 text-sm text-muted">
+              Embedded in exported progress notes. PNG with a transparent background is recommended. Max 1MB.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 px-[18px] py-4">
+            <input
+              ref={signatureInputRef}
+              type="file"
+              accept={SIGNATURE_ACCEPT}
+              onChange={handleSignatureChange}
+              className="hidden"
+            />
+            {form.signature_image_base64 ? (
+              <div
+                className="flex h-[90px] w-[260px] items-center justify-center rounded-md"
+                style={{
+                  border: '0.5px solid var(--color-hairline)',
+                  backgroundColor: '#f5f5f5',
+                  backgroundImage:
+                    'linear-gradient(45deg, #e5e5e5 25%, transparent 25%), linear-gradient(-45deg, #e5e5e5 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e5e5 75%), linear-gradient(-45deg, transparent 75%, #e5e5e5 75%)',
+                  backgroundSize: '12px 12px',
+                  backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0px'
+                }}
+              >
+                <img
+                  src={`data:image/png;base64,${form.signature_image_base64}`}
+                  alt="Therapist signature"
+                  className="max-h-[80px] max-w-[240px] object-contain"
+                />
+              </div>
+            ) : (
+              <div
+                className="flex h-[90px] w-[260px] items-center justify-center rounded-md text-sm text-muted"
+                style={{ border: '0.5px dashed var(--color-hairline)', background: 'var(--color-surface)' }}
+              >
+                No signature uploaded
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Btn type="button" variant="secondary" onClick={() => signatureInputRef.current?.click()}>
+                {form.signature_image_base64 ? 'Replace signature' : 'Upload signature'}
+              </Btn>
+              {form.signature_image_base64 && (
+                <Btn type="button" variant="ghost" onClick={clearSignature}>
+                  Clear
+                </Btn>
+              )}
+            </div>
+            {signatureError && <p className="text-sm text-danger">{signatureError}</p>}
+          </div>
+        </Card>
 
         <Section title="Contact">
           <Field label="Address line 1" value={form.address_line1 ?? ''} onChange={(e) => update('address_line1', e.target.value || null)} className="col-span-2" />

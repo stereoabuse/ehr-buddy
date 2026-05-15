@@ -19,6 +19,7 @@ export const IPC = {
   SESSIONS_ADD_AMENDMENT: 'sessions:addAmendment',
   SESSIONS_LIST_AMENDMENTS: 'sessions:listAmendments',
   SUPERBILL_GENERATE: 'superbill:generate',
+  NOTE_EXPORT_PDF: 'note:exportPdf',
   REPORT_INCOME_PDF: 'report:incomePdf',
   REPORT_CSV: 'report:csv',
   BACKUP_RUN: 'backup:run',

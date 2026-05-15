@@ -16,7 +16,7 @@ import { Disclosure } from '../components/Disclosure'
 import { PaidToggle } from '../components/PaidToggle'
 import { fmtMoney, initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
-import { noteHasContent } from '../lib/structured-note'
+import { noteHasContent } from '@shared/structured-note'
 import { invalidateSessionDerivedQueries } from '../lib/query'
 
 const EMPTY: ClientInput = {

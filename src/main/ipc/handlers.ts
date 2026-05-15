@@ -10,6 +10,7 @@ import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
 import * as documentsRepo from '../db/repos/documents'
 import { generateSuperbill } from '../pdf/superbill'
+import { generateNotePdf } from '../pdf/note'
 import { generateTaxReport } from '../pdf/tax-report'
 import { generateCsvExport } from '../reports/csv-export'
 import { runBackup, runFullArchive } from '../backup'
@@ -52,7 +53,12 @@ const clinicianUpsertSchema = z.object({
   postal_code: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
-  default_fees: z.record(z.string(), z.number().int().min(0)).nullable().optional()
+  default_fees: z.record(z.string(), z.number().int().min(0)).nullable().optional(),
+  signature_image_base64: z
+    .string()
+    .max(2_000_000, 'Signature image is too large (max ~1.5MB)')
+    .nullable()
+    .optional()
 })
 
 const sessionUpsertSchema = z.object({
@@ -94,6 +100,10 @@ const superbillSchema = z.object({
   clientId: z.string().min(1),
   fromDate: z.string().min(1),
   toDate: z.string().min(1)
+})
+
+const noteExportSchema = z.object({
+  sessionId: z.string().min(1)
 })
 
 const auditFilterSchema = z.object({
@@ -370,6 +380,21 @@ export function registerIpcHandlers(): void {
       audit('superbill_generate', 'superbill', args.clientId, {
         fromDate: args.fromDate,
         toDate: args.toDate,
+        path
+      })
+    }
+    return path ? { path } : null
+  })
+
+  // ── note PDF export ─────────────────────────────────────────
+  ipcMain.handle(IPC.NOTE_EXPORT_PDF, async (_e, input: unknown) => {
+    const args = noteExportSchema.parse(input)
+    const path = await generateNotePdf(args)
+    if (path) {
+      const session = sessionsRepo.get(args.sessionId)
+      audit('note_export_pdf', 'session', args.sessionId, {
+        client_id: session?.client_id,
+        session_date: session?.session_date,
         path
       })
     }
