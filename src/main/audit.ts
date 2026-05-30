@@ -95,9 +95,10 @@ export async function exportAuditCsv(filter: AuditFilter = {}): Promise<string |
 }
 
 function csvEscape(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
+  let text = value == null ? '' : String(value)
+  // Neutralize spreadsheet formula injection before quoting.
+  if (/^[=+\-@\t\r]/.test(text)) text = "'" + text
+  if (/[",\n\r]/.test(text)) text = `"${text.replace(/"/g, '""')}"`
+  return text
 }
 

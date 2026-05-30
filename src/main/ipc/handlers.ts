@@ -1,10 +1,21 @@
 import { ipcMain, app, dialog, shell } from 'electron'
-import { copyFileSync, mkdirSync, statSync, unlinkSync } from 'fs'
+import {
+  chmodSync,
+  closeSync,
+  copyFileSync,
+  mkdirSync,
+  openSync,
+  readSync,
+  statSync,
+  unlinkSync
+} from 'fs'
 import { extname, join } from 'path'
 import { randomUUID } from 'crypto'
 import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { practiceDateString } from '../../shared/date'
+import { CPT_CODES } from '../../shared/cpt-codes'
+import { ICD10_CODES } from '../../shared/icd10-codes'
 import * as clientsRepo from '../db/repos/clients'
 import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
@@ -16,18 +27,63 @@ import { generateCsvExport } from '../reports/csv-export'
 import { runBackup, runFullArchive } from '../backup'
 import { audit, exportAuditCsv, listAudit } from '../audit'
 
+// ── shared validation primitives ────────────────────────────
+// M4: raw-id args arrive as untyped IPC payloads; parse them instead of casting.
+const idSchema = z.string().min(1)
+// M3: anchored, ReDoS-safe shapes for the permissive string fields.
+const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected date as YYYY-MM-DD')
+const timeSchema = z.string().regex(/^\d{2}:\d{2}$/, 'Expected time as HH:MM')
+
+// CPT/ICD-10 allowlists derived from the shared code tables.
+const CPT_CODE_SET = new Set(CPT_CODES.map((c) => c.code))
+const ICD10_CODE_SET = new Set(ICD10_CODES.map((c) => c.code))
+
+const cptCodeSchema = z
+  .string()
+  .min(1)
+  .refine((code) => CPT_CODE_SET.has(code), 'Unknown CPT code')
+
+// icd10_codes is a comma-separated list of ICD-10 codes (see Icd10Picker).
+// Validate each entry against the allowlist; null/undefined are allowed.
+const icd10CodesSchema = z
+  .string()
+  .nullable()
+  .optional()
+  .refine(
+    (value) =>
+      value == null ||
+      value
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .every((code) => ICD10_CODE_SET.has(code)),
+    'Contains an unknown ICD-10 code'
+  )
+
+// M2: decode the base64 signature and verify it is a real PNG/JPEG ≤ 2 MB,
+// not just a string under the size cap.
+function signatureImageBytesValid(value: string): boolean {
+  const raw = value.includes(',') ? value.slice(value.indexOf(',') + 1) : value
+  const buf = Buffer.from(raw, 'base64')
+  if (buf.length === 0 || buf.length > 2_000_000) return false
+  const isPng =
+    buf.length >= 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
+  const isJpeg = buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff
+  return isPng || isJpeg
+}
+
 const clientUpsertSchema = z.object({
   id: z.string().optional(),
   first_name: z.string().trim().min(1, 'First name is required'),
   last_name: z.string().trim().min(1, 'Last name is required'),
-  dob: z.string().nullable().optional(),
+  dob: dateSchema.nullable().optional(),
   address_line1: z.string().nullable().optional(),
   address_line2: z.string().nullable().optional(),
   city: z.string().nullable().optional(),
   state: z.string().nullable().optional(),
   postal_code: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
-  email: z.string().nullable().optional(),
+  email: z.string().email().nullable().optional(),
   emergency_name: z.string().nullable().optional(),
   emergency_phone: z.string().nullable().optional(),
   emergency_relationship: z.string().nullable().optional(),
@@ -35,7 +91,7 @@ const clientUpsertSchema = z.object({
   insurance_member_id: z.string().nullable().optional(),
   insurance_group_id: z.string().nullable().optional(),
   insurance_plan_holder_name: z.string().nullable().optional(),
-  insurance_plan_holder_dob: z.string().nullable().optional(),
+  insurance_plan_holder_dob: dateSchema.nullable().optional(),
   active: z.number().int().min(0).max(1).optional()
 })
 
@@ -52,11 +108,12 @@ const clinicianUpsertSchema = z.object({
   state: z.string().nullable().optional(),
   postal_code: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
-  email: z.string().nullable().optional(),
+  email: z.string().email().nullable().optional(),
   default_fees: z.record(z.string(), z.number().int().min(0)).nullable().optional(),
   signature_image_base64: z
     .string()
     .max(2_000_000, 'Signature image is too large (max ~1.5MB)')
+    .refine(signatureImageBytesValid, 'Signature must be a PNG or JPEG image no larger than 2MB')
     .nullable()
     .optional()
 })
@@ -64,11 +121,11 @@ const clinicianUpsertSchema = z.object({
 const sessionUpsertSchema = z.object({
   id: z.string().optional(),
   client_id: z.string().min(1),
-  session_date: z.string().min(1),
-  start_time: z.string().min(1),
-  end_time: z.string().min(1),
-  cpt_code: z.string().min(1),
-  icd10_codes: z.string().nullable().optional(),
+  session_date: dateSchema,
+  start_time: timeSchema,
+  end_time: timeSchema,
+  cpt_code: cptCodeSchema,
+  icd10_codes: icd10CodesSchema,
   fee_cents: z.number().int().min(0),
   paid: z.number().int().min(0).max(1).optional(),
   note_format: z.enum(['DAP', 'FREE', 'STRUCTURED']).optional(),
@@ -134,6 +191,35 @@ const MIME_BY_EXT: Record<string, string> = {
   '.heif': 'image/heif'
 }
 
+// M5: reject oversized uploads and content that doesn't match its extension.
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024 // 25 MB
+
+// Leading magic bytes per extension. HEIC/HEIF use a variable-offset `ftyp`
+// box, so we can't cheaply assert their signature here — those still get the
+// size + extension checks, just not a byte check.
+const MAGIC_BYTES: Record<string, number[][]> = {
+  '.pdf': [[0x25, 0x50, 0x44, 0x46]], // %PDF
+  '.png': [[0x89, 0x50, 0x4e, 0x47]], // \x89PNG
+  '.jpg': [[0xff, 0xd8, 0xff]],
+  '.jpeg': [[0xff, 0xd8, 0xff]]
+}
+
+function assertMagicBytesMatch(filePath: string, ext: string): void {
+  const expected = MAGIC_BYTES[ext]
+  if (!expected) return // heic/heif: extension + size checks only
+  const fd = openSync(filePath, 'r')
+  try {
+    const head = Buffer.alloc(8)
+    const bytesRead = readSync(fd, head, 0, head.length, 0)
+    const ok = expected.some((sig) => sig.every((b, i) => i < bytesRead && head[i] === b))
+    if (!ok) {
+      throw new Error(`File contents do not match a ${ext} file.`)
+    }
+  } finally {
+    closeSync(fd)
+  }
+}
+
 function documentsDir(): string {
   return join(app.getPath('userData'), 'documents')
 }
@@ -179,7 +265,8 @@ export function registerIpcHandlers(): void {
     return rows
   })
 
-  ipcMain.handle(IPC.CLIENTS_GET, (_e, id: string) => {
+  ipcMain.handle(IPC.CLIENTS_GET, (_e, arg: unknown) => {
+    const id = idSchema.parse(arg)
     const row = clientsRepo.get(id) ?? null
     if (row) audit('client_view', 'client', id)
     return row
@@ -193,7 +280,8 @@ export function registerIpcHandlers(): void {
     return client
   })
 
-  ipcMain.handle(IPC.CLIENTS_DELETE, (_e, id: string) => {
+  ipcMain.handle(IPC.CLIENTS_DELETE, (_e, arg: unknown) => {
+    const id = idSchema.parse(arg)
     clientsRepo.softDelete(id)
     audit('client_delete', 'client', id)
     return { ok: true }
@@ -243,11 +331,12 @@ export function registerIpcHandlers(): void {
   // ── sessions ────────────────────────────────────────────────
   ipcMain.handle(IPC.SESSIONS_TODAY, () => sessionsRepo.today())
   ipcMain.handle(IPC.SESSIONS_UNPAID, () => sessionsRepo.allUnpaid())
-  ipcMain.handle(IPC.SESSIONS_LIST_BY_CLIENT, (_e, clientId: string) =>
-    sessionsRepo.listByClient(clientId)
+  ipcMain.handle(IPC.SESSIONS_LIST_BY_CLIENT, (_e, arg: unknown) =>
+    sessionsRepo.listByClient(idSchema.parse(arg))
   )
 
-  ipcMain.handle(IPC.SESSIONS_GET, (_e, id: string) => {
+  ipcMain.handle(IPC.SESSIONS_GET, (_e, arg: unknown) => {
+    const id = idSchema.parse(arg)
     const row = sessionsRepo.get(id) ?? null
     if (row) audit('session_view', 'session', id, { client_id: row.client_id })
     return row
@@ -296,7 +385,8 @@ export function registerIpcHandlers(): void {
     return session
   })
 
-  ipcMain.handle(IPC.SESSIONS_DELETE, (_e, id: string) => {
+  ipcMain.handle(IPC.SESSIONS_DELETE, (_e, arg: unknown) => {
+    const id = idSchema.parse(arg)
     const session = sessionsRepo.get(id)
     if (session?.signed_at) {
       throw new Error(
@@ -368,8 +458,8 @@ export function registerIpcHandlers(): void {
     return amendment
   })
 
-  ipcMain.handle(IPC.SESSIONS_LIST_AMENDMENTS, (_e, sessionId: string) => {
-    return sessionsRepo.listAmendments(sessionId)
+  ipcMain.handle(IPC.SESSIONS_LIST_AMENDMENTS, (_e, arg: unknown) => {
+    return sessionsRepo.listAmendments(idSchema.parse(arg))
   })
 
   // ── superbill ───────────────────────────────────────────────
@@ -444,7 +534,8 @@ export function registerIpcHandlers(): void {
   })
 
   // ── documents ───────────────────────────────────────────────
-  ipcMain.handle(IPC.DOCUMENTS_LIST, (_e, clientId: string) => {
+  ipcMain.handle(IPC.DOCUMENTS_LIST, (_e, arg: unknown) => {
+    const clientId = idSchema.parse(arg)
     const docs = documentsRepo.list(clientId)
     audit('document_view', 'document', null, {
       client_id: clientId,
@@ -473,10 +564,26 @@ export function registerIpcHandlers(): void {
       throw new Error(`Unsupported file type: ${ext || '(none)'}`)
     }
 
+    const sourceSize = statSync(sourcePath).size
+    if (sourceSize > MAX_UPLOAD_BYTES) {
+      throw new Error(
+        `File is too large (max ${Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024))} MB).`
+      )
+    }
+    assertMagicBytesMatch(sourcePath, ext)
+
     const id = randomUUID()
     const stored = `${id}${ext}`
-    mkdirSync(documentsDir(), { recursive: true })
+    // H4: restrict the PHI documents dir and stored file to the owner (POSIX only).
+    mkdirSync(documentsDir(), { recursive: true, mode: 0o700 })
     copyFileSync(sourcePath, documentPath(stored))
+    if (process.platform !== 'win32') {
+      try {
+        chmodSync(documentPath(stored), 0o600)
+      } catch (err) {
+        console.error(`[documents] chmod failed for ${stored}:`, err)
+      }
+    }
     const stat = statSync(documentPath(stored))
 
     const doc = documentsRepo.insert({
@@ -501,7 +608,8 @@ export function registerIpcHandlers(): void {
     return doc
   })
 
-  ipcMain.handle(IPC.DOCUMENTS_OPEN, async (_e, id: string) => {
+  ipcMain.handle(IPC.DOCUMENTS_OPEN, async (_e, arg: unknown) => {
+    const id = idSchema.parse(arg)
     const doc = documentsRepo.get(id)
     if (!doc) return { ok: false, error: 'Document not found' }
     const err = await shell.openPath(documentPath(doc.stored_filename))
@@ -510,7 +618,8 @@ export function registerIpcHandlers(): void {
     return { ok: true }
   })
 
-  ipcMain.handle(IPC.DOCUMENTS_DOWNLOAD, async (_e, id: string) => {
+  ipcMain.handle(IPC.DOCUMENTS_DOWNLOAD, async (_e, arg: unknown) => {
+    const id = idSchema.parse(arg)
     const doc = documentsRepo.get(id)
     if (!doc) return null
 
@@ -528,7 +637,8 @@ export function registerIpcHandlers(): void {
     return { path: result.filePath }
   })
 
-  ipcMain.handle(IPC.DOCUMENTS_DELETE, (_e, id: string) => {
+  ipcMain.handle(IPC.DOCUMENTS_DELETE, (_e, arg: unknown) => {
+    const id = idSchema.parse(arg)
     const doc = documentsRepo.get(id)
     if (!doc) return { ok: true }
 

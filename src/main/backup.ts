@@ -1,5 +1,5 @@
 import { app, dialog } from 'electron'
-import { copyFileSync, createWriteStream, existsSync } from 'fs'
+import { copyFileSync, createWriteStream, existsSync, chmodSync } from 'fs'
 import { join } from 'path'
 import archiver from 'archiver'
 import { getDb, dbPath } from './db/connection'
@@ -20,6 +20,8 @@ export async function runBackup(): Promise<string | null> {
   if (result.canceled || !result.filePath) return null
 
   copyFileSync(dbPath(), result.filePath)
+  // Restrict the PHI backup to the owner (POSIX only).
+  if (process.platform !== 'win32') chmodSync(result.filePath, 0o600)
   console.log(`[backup] saved to ${result.filePath}`)
   return result.filePath
 }
@@ -63,6 +65,8 @@ export async function runFullArchive(): Promise<string | null> {
   await archive.finalize()
   await completed
 
+  // Restrict the PHI archive to the owner (POSIX only).
+  if (process.platform !== 'win32') chmodSync(result.filePath, 0o600)
   console.log(`[archive] saved to ${result.filePath}`)
   return result.filePath
 }
@@ -255,9 +259,9 @@ function toCsv(headers: string[], rows: Record<string, unknown>[]): string {
 }
 
 function csvEscape(value: unknown): string {
-  const text = value == null ? '' : String(value)
-  if (text.includes(',') || text.includes('"') || text.includes('\n') || text.includes('\r')) {
-    return `"${text.replace(/"/g, '""')}"`
-  }
+  let text = value == null ? '' : String(value)
+  // Neutralize spreadsheet formula injection before quoting.
+  if (/^[=+\-@\t\r]/.test(text)) text = "'" + text
+  if (/[",\n\r]/.test(text)) text = `"${text.replace(/"/g, '""')}"`
   return text
 }
