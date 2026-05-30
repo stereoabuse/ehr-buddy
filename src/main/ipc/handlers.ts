@@ -14,8 +14,15 @@ import { randomUUID } from 'crypto'
 import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { practiceDateString } from '../../shared/date'
-import { CPT_CODES } from '../../shared/cpt-codes'
-import { ICD10_CODES } from '../../shared/icd10-codes'
+import {
+  idSchema,
+  dateSchema,
+  timeSchema,
+  cptCodeSchema,
+  icd10CodesSchema,
+  signatureImageSchema
+} from '../../shared/validation'
+import { headMatchesExtension } from '../../shared/file-magic'
 import * as clientsRepo from '../db/repos/clients'
 import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
@@ -26,51 +33,6 @@ import { generateTaxReport } from '../pdf/tax-report'
 import { generateCsvExport } from '../reports/csv-export'
 import { runBackup, runFullArchive } from '../backup'
 import { audit, exportAuditCsv, listAudit } from '../audit'
-
-// ── shared validation primitives ────────────────────────────
-// M4: raw-id args arrive as untyped IPC payloads; parse them instead of casting.
-const idSchema = z.string().min(1)
-// M3: anchored, ReDoS-safe shapes for the permissive string fields.
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected date as YYYY-MM-DD')
-const timeSchema = z.string().regex(/^\d{2}:\d{2}$/, 'Expected time as HH:MM')
-
-// CPT/ICD-10 allowlists derived from the shared code tables.
-const CPT_CODE_SET = new Set(CPT_CODES.map((c) => c.code))
-const ICD10_CODE_SET = new Set(ICD10_CODES.map((c) => c.code))
-
-const cptCodeSchema = z
-  .string()
-  .min(1)
-  .refine((code) => CPT_CODE_SET.has(code), 'Unknown CPT code')
-
-// icd10_codes is a comma-separated list of ICD-10 codes (see Icd10Picker).
-// Validate each entry against the allowlist; null/undefined are allowed.
-const icd10CodesSchema = z
-  .string()
-  .nullable()
-  .optional()
-  .refine(
-    (value) =>
-      value == null ||
-      value
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .every((code) => ICD10_CODE_SET.has(code)),
-    'Contains an unknown ICD-10 code'
-  )
-
-// M2: decode the base64 signature and verify it is a real PNG/JPEG ≤ 2 MB,
-// not just a string under the size cap.
-function signatureImageBytesValid(value: string): boolean {
-  const raw = value.includes(',') ? value.slice(value.indexOf(',') + 1) : value
-  const buf = Buffer.from(raw, 'base64')
-  if (buf.length === 0 || buf.length > 2_000_000) return false
-  const isPng =
-    buf.length >= 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
-  const isJpeg = buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff
-  return isPng || isJpeg
-}
 
 const clientUpsertSchema = z.object({
   id: z.string().optional(),
@@ -110,12 +72,7 @@ const clinicianUpsertSchema = z.object({
   phone: z.string().nullable().optional(),
   email: z.string().email().nullable().optional(),
   default_fees: z.record(z.string(), z.number().int().min(0)).nullable().optional(),
-  signature_image_base64: z
-    .string()
-    .max(2_000_000, 'Signature image is too large (max ~1.5MB)')
-    .refine(signatureImageBytesValid, 'Signature must be a PNG or JPEG image no larger than 2MB')
-    .nullable()
-    .optional()
+  signature_image_base64: signatureImageSchema.nullable().optional()
 })
 
 const sessionUpsertSchema = z.object({
@@ -194,25 +151,12 @@ const MIME_BY_EXT: Record<string, string> = {
 // M5: reject oversized uploads and content that doesn't match its extension.
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024 // 25 MB
 
-// Leading magic bytes per extension. HEIC/HEIF use a variable-offset `ftyp`
-// box, so we can't cheaply assert their signature here — those still get the
-// size + extension checks, just not a byte check.
-const MAGIC_BYTES: Record<string, number[][]> = {
-  '.pdf': [[0x25, 0x50, 0x44, 0x46]], // %PDF
-  '.png': [[0x89, 0x50, 0x4e, 0x47]], // \x89PNG
-  '.jpg': [[0xff, 0xd8, 0xff]],
-  '.jpeg': [[0xff, 0xd8, 0xff]]
-}
-
 function assertMagicBytesMatch(filePath: string, ext: string): void {
-  const expected = MAGIC_BYTES[ext]
-  if (!expected) return // heic/heif: extension + size checks only
   const fd = openSync(filePath, 'r')
   try {
     const head = Buffer.alloc(8)
     const bytesRead = readSync(fd, head, 0, head.length, 0)
-    const ok = expected.some((sig) => sig.every((b, i) => i < bytesRead && head[i] === b))
-    if (!ok) {
+    if (!headMatchesExtension(head.subarray(0, bytesRead), ext)) {
       throw new Error(`File contents do not match a ${ext} file.`)
     }
   } finally {

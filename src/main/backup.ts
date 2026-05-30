@@ -3,6 +3,7 @@ import { copyFileSync, createWriteStream, existsSync, chmodSync } from 'fs'
 import { join } from 'path'
 import archiver from 'archiver'
 import { getDb, dbPath } from './db/connection'
+import { csvEscape } from '../shared/csv'
 import { practiceDateString } from '../shared/date'
 
 export async function runBackup(): Promise<string | null> {
@@ -256,12 +257,4 @@ function toCsv(headers: string[], rows: Record<string, unknown>[]): string {
     headers.join(','),
     ...rows.map((row) => headers.map((header) => csvEscape(row[header])).join(','))
   ].join('\n')
-}
-
-function csvEscape(value: unknown): string {
-  let text = value == null ? '' : String(value)
-  // Neutralize spreadsheet formula injection before quoting.
-  if (/^[=+\-@\t\r]/.test(text)) text = "'" + text
-  if (/[",\n\r]/.test(text)) text = `"${text.replace(/"/g, '""')}"`
-  return text
 }
