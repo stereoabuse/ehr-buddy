@@ -135,13 +135,12 @@ describe('practiceDayBoundaryIso', () => {
     expect(practiceDayBoundaryIso('2026-01-00', 'start')).toBe('2026-01-00')
   })
 
-  it('BUG: does not validate month/day ranges; out-of-range month overflows silently', () => {
-    // '2026-13-05' parses to year=2026, month=13, day=5 (all truthy) so the
-    // guard passes and Date.UTC rolls the month over into the next year.
-    // Asserting the CURRENT (buggy) behavior: it produces a January 2027 instant
-    // rather than returning the raw input or throwing.
-    const result = practiceDayBoundaryIso('2026-13-05', 'start')
-    expect(result).not.toBe('2026-13-05')
-    expect(result).toBe('2027-01-05T05:00:00.000Z')
+  it('returns the raw input for an out-of-range month instead of overflowing', () => {
+    // '2026-13-05' (month 13) must not silently roll over into the next year.
+    expect(practiceDayBoundaryIso('2026-13-05', 'start')).toBe('2026-13-05')
+  })
+
+  it('returns the raw input for an out-of-range day', () => {
+    expect(practiceDayBoundaryIso('2026-01-40', 'start')).toBe('2026-01-40')
   })
 })

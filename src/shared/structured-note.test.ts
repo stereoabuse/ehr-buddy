@@ -74,8 +74,8 @@ describe('parseStructuredNote', () => {
   })
 
   it('returns the empty default when JSON parses to an array', () => {
-    // Arrays are typeof "object" and not null, so they pass the guard, but
-    // every field falls back to its default since none of the keys exist.
+    // Arrays are typeof "object" but are explicitly rejected by the guard
+    // (Array.isArray), so they fall back to a fresh empty note.
     expect(parseStructuredNote('[1,2,3]')).toEqual(EMPTY_STRUCTURED_NOTE)
   })
 
@@ -154,12 +154,24 @@ describe('parseStructuredNote', () => {
     expect(parsed.schemaVersion).toBe(1)
   })
 
-  it('does not mutate or alias the EMPTY_STRUCTURED_NOTE constant on default paths', () => {
-    // BUG GUARD: parseStructuredNote returns EMPTY_STRUCTURED_NOTE by reference
-    // for falsy/malformed input. Mutating the result would corrupt the shared
-    // constant. We assert the current (aliasing) behavior so callers are warned.
+  it('returns a fresh copy on default paths, never aliasing the shared constant', () => {
+    // Regression guard: parseStructuredNote must not hand back the shared
+    // EMPTY_STRUCTURED_NOTE singleton, or a caller mutating the result would
+    // corrupt every future default parse.
     const a = parseStructuredNote(null)
-    expect(a).toBe(EMPTY_STRUCTURED_NOTE)
+    expect(a).toEqual(EMPTY_STRUCTURED_NOTE)
+    expect(a).not.toBe(EMPTY_STRUCTURED_NOTE)
+    expect(a.observations).not.toBe(EMPTY_STRUCTURED_NOTE.observations)
+    expect(a.risk_factors).not.toBe(EMPTY_STRUCTURED_NOTE.risk_factors)
+
+    // Mutating the result must not leak into the constant or a later parse.
+    a.overall_notes = 'mutated'
+    a.risk_factors.push('none')
+    a.observations.mood = 'Anxious'
+    expect(EMPTY_STRUCTURED_NOTE.overall_notes).toBe('')
+    expect(EMPTY_STRUCTURED_NOTE.risk_factors).toEqual([])
+    expect(EMPTY_STRUCTURED_NOTE.observations.mood).toBe('')
+    expect(parseStructuredNote(undefined).overall_notes).toBe('')
   })
 })
 
