@@ -4,6 +4,9 @@ import type { Api } from '../shared/api-types'
 
 const api: Api = {
   ping: () => ipcRenderer.invoke(IPC.PING),
+  app: {
+    version: () => ipcRenderer.invoke(IPC.APP_VERSION)
+  },
   clients: {
     list: () => ipcRenderer.invoke(IPC.CLIENTS_LIST),
     roster: () => ipcRenderer.invoke(IPC.CLIENTS_ROSTER),

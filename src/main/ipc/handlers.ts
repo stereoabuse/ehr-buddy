@@ -200,6 +200,8 @@ export function registerIpcHandlers(): void {
     return { ok: true, message: 'pong from main', ts: new Date().toISOString() }
   })
 
+  ipcMain.handle(IPC.APP_VERSION, () => app.getVersion())
+
   // ── clients ─────────────────────────────────────────────────
   ipcMain.handle(IPC.CLIENTS_LIST, () => clientsRepo.list())
 

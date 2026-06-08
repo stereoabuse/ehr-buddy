@@ -1,4 +1,4 @@
-import { matchPath, useLocation } from 'react-router-dom'
+import { matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from './Icon'
 
 interface PageMeta {
@@ -29,6 +29,7 @@ function metaFor(pathname: string): PageMeta {
 
 export function TopBar() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { title, breadcrumbs } = metaFor(pathname)
 
   return (
@@ -36,6 +37,17 @@ export function TopBar() {
       className="flex h-14 shrink-0 items-center gap-4 bg-surface px-6"
       style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
     >
+      {pathname !== '/' && (
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted hover:bg-canvas-2 hover:text-ink"
+        >
+          <Icon name="chevL" size={18} />
+        </button>
+      )}
+
       <div className="flex min-w-0 flex-col">
         {breadcrumbs && breadcrumbs.length > 0 && (
           <div className="mb-px flex items-center gap-1.5 text-xs text-muted">

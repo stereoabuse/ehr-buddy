@@ -55,6 +55,9 @@ export interface PermanentDeleteClientArgs {
 
 export interface Api {
   ping: () => Promise<PingResult>
+  app: {
+    version: () => Promise<string>
+  }
   clients: {
     list: () => Promise<ClientListItem[]>
     roster: () => Promise<RosterRow[]>
