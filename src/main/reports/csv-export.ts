@@ -1,6 +1,7 @@
 import { dialog, app } from 'electron'
 import { writeFileSync } from 'fs'
 import { join } from 'path'
+import { csvEscape } from '../../shared/csv'
 import * as sessionsRepo from '../db/repos/sessions'
 
 const CPT_LABELS: Record<string, string> = {
@@ -73,11 +74,4 @@ export async function generateCsvExport(args: CsvArgs): Promise<string | null> {
   writeFileSync(result.filePath, csv, 'utf-8')
   console.log(`[csv-export] saved to ${result.filePath}`)
   return result.filePath
-}
-
-function csvEscape(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
 }

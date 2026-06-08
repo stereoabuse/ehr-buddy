@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, shell } from 'electron'
+import { app, BrowserWindow, Menu, session, shell } from 'electron'
 import type { MenuItemConstructorOptions } from 'electron'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
@@ -49,6 +49,46 @@ function isSameDocumentNavigation(rawUrl: string, currentRawUrl: string): boolea
   } catch {
     return false
   }
+}
+
+// Content-Security-Policy applied to every response via the default session.
+// Packaged builds get a strict policy; dev relaxes script/connect so Vite's
+// HMR client (inline bootstrap + ws:// websocket) keeps working.
+function installContentSecurityPolicy(): void {
+  const packagedCsp = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'"
+  ].join('; ')
+
+  const devCsp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self' ws: http: https:",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'"
+  ].join('; ')
+
+  const csp = app.isPackaged ? packagedCsp : devCsp
+
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [csp]
+      }
+    })
+  })
 }
 
 function buildMacAppMenu(): void {
@@ -161,6 +201,7 @@ if (!gotLock) {
   })
 
   app.whenReady().then(() => {
+    installContentSecurityPolicy()
     if (!app.isPackaged && process.platform === 'darwin') {
       app.dock?.setIcon(devIconPath)
     }

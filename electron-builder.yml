@@ -11,7 +11,7 @@ asarUnpack:
   - "**/better_sqlite3.node"
   - "**/pdfkit/**"
 
-afterPack: ./scripts/ad-hoc-sign-mac.cjs
+afterPack: ./scripts/combined-afterpack.cjs
 
 files:
   - out/**/*
@@ -22,6 +22,10 @@ mac:
   target: dmg
   category: public.app-category.medical
   identity: "-"
+  hardenedRuntime: true
+  # TODO(user): real distribution needs Developer ID signing + notarization
+  # (set a real `identity`, provide notarize credentials). Ad-hoc signing ("-")
+  # plus hardenedRuntime is sufficient for local/unsigned testing only.
 
 win:
   target:

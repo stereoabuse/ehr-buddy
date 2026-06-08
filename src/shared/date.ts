@@ -26,7 +26,9 @@ export function practiceDayBoundaryIso(
   boundary: 'start' | 'end'
 ): string {
   const [year, month, day] = dateStr.split('-').map(Number)
-  if (!year || !month || !day) return dateStr
+  // Reject falsy/zero/NaN and out-of-range components so an invalid string like
+  // '2026-13-05' returns unchanged instead of silently overflowing via Date.UTC.
+  if (!year || !month || !day || month < 1 || month > 12 || day < 1 || day > 31) return dateStr
 
   const utcMs = zonedTimeToUtcMs({
     year,

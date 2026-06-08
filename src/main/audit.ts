@@ -3,6 +3,7 @@ import { app, dialog } from 'electron'
 import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { getDb } from './db/connection'
+import { csvEscape } from '../shared/csv'
 import { practiceDateString, practiceDayBoundaryIso } from '../shared/date'
 import type { AuditAction, AuditEntity, AuditEntry, AuditFilter } from '../shared/types'
 
@@ -92,12 +93,5 @@ export async function exportAuditCsv(filter: AuditFilter = {}): Promise<string |
   writeFileSync(result.filePath, lines.join('\n'), 'utf-8')
   console.log(`[audit] CSV saved to ${result.filePath}`)
   return result.filePath
-}
-
-function csvEscape(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
 }
 

@@ -88,39 +88,49 @@ export const RECOMMENDATION_OPTIONS: { id: Exclude<Recommendation, null>; label:
   { id: 'terminate', label: 'Terminate Treatment' }
 ]
 
-export const EMPTY_STRUCTURED_NOTE: StructuredNote = {
-  schemaVersion: 1,
-  overall_notes: '',
-  observations: {
-    cognitive_functioning: '',
-    affect: '',
-    mood: '',
-    interpersonal: '',
-    functional_status: ''
-  },
-  risk_factors: [],
-  risk_factors_other: '',
-  medications: '',
-  current_functioning: '',
-  content_discussed: '',
-  interventions: [],
-  interventions_other: '',
-  treatment_plan: { objective_1: '', objective_2: '', additional_notes: '' },
-  plan: '',
-  recommendation: null
+/** A fresh, fully-owned empty note. Use this (not EMPTY_STRUCTURED_NOTE) whenever
+ *  the result may be mutated — every nested object/array is newly allocated. */
+export function createEmptyStructuredNote(): StructuredNote {
+  return {
+    schemaVersion: 1,
+    overall_notes: '',
+    observations: {
+      cognitive_functioning: '',
+      affect: '',
+      mood: '',
+      interpersonal: '',
+      functional_status: ''
+    },
+    risk_factors: [],
+    risk_factors_other: '',
+    medications: '',
+    current_functioning: '',
+    content_discussed: '',
+    interventions: [],
+    interventions_other: '',
+    treatment_plan: { objective_1: '', objective_2: '', additional_notes: '' },
+    plan: '',
+    recommendation: null
+  }
 }
+
+/** Canonical empty note for read-only/comparison use. Do not mutate; call
+ *  createEmptyStructuredNote() for a mutable copy. */
+export const EMPTY_STRUCTURED_NOTE: StructuredNote = createEmptyStructuredNote()
 
 /** Parse a stored note body as a structured note. Forgiving: missing fields
  *  fall back to defaults, malformed JSON returns the empty note. */
 export function parseStructuredNote(body: string | null | undefined): StructuredNote {
-  if (!body) return EMPTY_STRUCTURED_NOTE
+  if (!body) return createEmptyStructuredNote()
   let raw: unknown
   try {
     raw = JSON.parse(body)
   } catch {
-    return EMPTY_STRUCTURED_NOTE
+    return createEmptyStructuredNote()
   }
-  if (typeof raw !== 'object' || raw === null) return EMPTY_STRUCTURED_NOTE
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return createEmptyStructuredNote()
+  }
   const r = raw as Partial<StructuredNote>
   return {
     schemaVersion: 1,
@@ -160,7 +170,7 @@ export function serializeStructuredNote(note: StructuredNote): string {
 
 /** Build a STRUCTURED note from legacy DAP/FREE body — body becomes overall_notes. */
 export function fromLegacyBody(body: string | null | undefined): StructuredNote {
-  return { ...EMPTY_STRUCTURED_NOTE, overall_notes: (body ?? '').trim() }
+  return { ...createEmptyStructuredNote(), overall_notes: (body ?? '').trim() }
 }
 
 /** Heuristic for "this note has been written in" — works across all formats. */
