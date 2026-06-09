@@ -208,14 +208,15 @@ export default function SessionEditor() {
   }
 
   function handleCptChange(code: string): void {
-    setForm((f) => {
-      const defaultFee = defaultFees[code]
-      if (f.fee_cents === 0 && defaultFee != null) {
-        setFeeDollarStr((defaultFee / 100).toString())
-        return { ...f, cpt_code: code, fee_cents: defaultFee }
-      }
-      return { ...f, cpt_code: code }
-    })
+    const defaultFee = defaultFees[code]
+    const typed = parseFloat(feeDollarStr)
+    const feeIsBlank = Number.isNaN(typed) || typed === 0
+    if (feeIsBlank && defaultFee != null) {
+      setFeeDollarStr((defaultFee / 100).toString())
+      setForm((f) => ({ ...f, cpt_code: code, fee_cents: defaultFee }))
+    } else {
+      setForm((f) => ({ ...f, cpt_code: code }))
+    }
   }
 
   const save = useMutation({
