@@ -444,7 +444,11 @@ export function registerIpcHandlers(): void {
   })
 
   // ── reports ─────────────────────────────────────────────────
-  const reportArgsSchema = z.object({ fromDate: z.string().min(1), toDate: z.string().min(1) })
+  const reportArgsSchema = z.object({
+    fromDate: z.string().min(1),
+    toDate: z.string().min(1),
+    includeArchived: z.boolean().optional()
+  })
 
   ipcMain.handle(IPC.REPORT_INCOME_PDF, async (_e, input: unknown) => {
     const args = reportArgsSchema.parse(input)

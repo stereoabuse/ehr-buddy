@@ -35,6 +35,7 @@ export interface NoteExportArgs {
 export interface ReportArgs {
   fromDate: string
   toDate: string
+  includeArchived?: boolean
 }
 
 export interface SignSessionArgs {

@@ -19,13 +19,14 @@ const CPT_LABELS: Record<string, string> = {
 interface ReportArgs {
   fromDate: string
   toDate: string
+  includeArchived?: boolean
 }
 
 export async function generateTaxReport(args: ReportArgs): Promise<string | null> {
   const clinician = clinicianRepo.get()
   if (!clinician) throw new Error('Clinician profile not set up')
 
-  const sessions = sessionsRepo.allInRange(args.fromDate, args.toDate)
+  const sessions = sessionsRepo.allInRange(args.fromDate, args.toDate, args.includeArchived ?? false)
   if (sessions.length === 0) throw new Error('No sessions in the selected date range')
 
   const defaultName = `income-report-${args.fromDate}-to-${args.toDate}.pdf`
@@ -82,6 +83,12 @@ function writePdf(
     }
 
     doc.fontSize(9).text(`Period: ${args.fromDate} to ${args.toDate}`, L, y, { width: W, align: 'center' })
+    y += 14
+
+    doc.fontSize(9).text(
+      args.includeArchived ? 'Scope: all clients, including archived' : 'Scope: active clients only',
+      L, y, { width: W, align: 'center' }
+    )
     y += 20
 
     doc.moveTo(L, y).lineTo(R, y).lineWidth(0.5).stroke()

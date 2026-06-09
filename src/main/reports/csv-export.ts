@@ -17,10 +17,11 @@ const CPT_LABELS: Record<string, string> = {
 interface CsvArgs {
   fromDate: string
   toDate: string
+  includeArchived?: boolean
 }
 
 export async function generateCsvExport(args: CsvArgs): Promise<string | null> {
-  const sessions = sessionsRepo.allInRange(args.fromDate, args.toDate)
+  const sessions = sessionsRepo.allInRange(args.fromDate, args.toDate, args.includeArchived ?? false)
   if (sessions.length === 0) throw new Error('No sessions in the selected date range')
 
   const defaultName = `session-detail-${args.fromDate}-to-${args.toDate}.csv`

@@ -182,12 +182,17 @@ export function today(): SessionWithClient[] {
     .all(todayStr) as SessionWithClient[]
 }
 
-export function allInRange(fromDate: string, toDate: string): SessionWithClient[] {
+export function allInRange(
+  fromDate: string,
+  toDate: string,
+  includeArchived = false
+): SessionWithClient[] {
+  const activeClause = includeArchived ? '' : 'AND c.active = 1'
   return getDb()
     .prepare(
       `SELECT s.*, c.first_name AS client_first_name, c.last_name AS client_last_name
        FROM sessions s JOIN clients c ON s.client_id = c.id
-       WHERE s.session_date >= ? AND s.session_date <= ? AND c.active = 1
+       WHERE s.session_date >= ? AND s.session_date <= ? ${activeClause}
        ORDER BY s.session_date, s.start_time`
     )
     .all(fromDate, toDate) as SessionWithClient[]

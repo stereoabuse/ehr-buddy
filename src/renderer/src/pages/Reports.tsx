@@ -9,6 +9,7 @@ import { Field } from '../components/Field'
 export default function Reports() {
   const [fromDate, setFromDate] = useState(practiceYearStartString)
   const [toDate, setToDate] = useState(practiceDateString)
+  const [includeArchived, setIncludeArchived] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
 
   const pdfMut = useMutation({
@@ -53,6 +54,20 @@ export default function Reports() {
           <Field label="From" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           <Field label="To" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
         </div>
+        <div className="px-[18px] pb-4">
+          <label className="flex cursor-pointer items-center gap-2 text-base text-body">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e) => setIncludeArchived(e.target.checked)}
+            />
+            Include sessions for archived clients
+          </label>
+          <p className="mt-1.5 mb-0 text-sm text-muted">
+            Off by default. Turn this on for tax or year-end reports so income from clients archived
+            mid-year is still counted.
+          </p>
+        </div>
       </Card>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
@@ -66,7 +81,7 @@ export default function Reports() {
           <div className="mt-4">
             <Btn
               icon="pdf"
-              onClick={() => { setStatus(null); pdfMut.mutate({ fromDate, toDate }) }}
+              onClick={() => { setStatus(null); pdfMut.mutate({ fromDate, toDate, includeArchived }) }}
               disabled={busy}
             >
               {pdfMut.isPending ? 'Generating…' : 'Generate PDF'}
@@ -85,7 +100,7 @@ export default function Reports() {
             <Btn
               icon="download"
               variant="secondary"
-              onClick={() => { setStatus(null); csvMut.mutate({ fromDate, toDate }) }}
+              onClick={() => { setStatus(null); csvMut.mutate({ fromDate, toDate, includeArchived }) }}
               disabled={busy}
             >
               {csvMut.isPending ? 'Exporting…' : 'Export CSV'}
