@@ -7,7 +7,7 @@ import { Card } from '../components/Card'
 import { Field } from '../components/Field'
 
 const ENTITY_TYPES: (AuditEntity | '')[] = [
-  '', 'app', 'client', 'session', 'clinician', 'superbill', 'report', 'backup'
+  '', 'app', 'client', 'session', 'clinician', 'superbill', 'report', 'backup', 'document'
 ]
 
 export default function Activity() {
