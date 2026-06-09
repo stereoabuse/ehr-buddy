@@ -15,6 +15,8 @@ import { Tabs } from '../components/Tabs'
 import { Disclosure } from '../components/Disclosure'
 import { PaidToggle } from '../components/PaidToggle'
 import { Modal } from '../components/Modal'
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
+import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
 import { fmtMoney, initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import { noteHasContent } from '@shared/structured-note'
@@ -800,6 +802,9 @@ function InfoForm({
     enabled: !isNew
   })
   const [form, setForm] = useState<ClientInput>(EMPTY)
+  const [baseline, setBaseline] = useState<string>(() => JSON.stringify(EMPTY))
+  const isDirty = JSON.stringify(form) !== baseline
+  const { blocker, bypass } = useUnsavedChangesGuard(isDirty)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false)
   const loadedClientId = useRef<string | undefined>(undefined)
@@ -809,12 +814,14 @@ function InfoForm({
       if (loadedClientId.current !== undefined) {
         loadedClientId.current = undefined
         setForm(EMPTY)
+        setBaseline(JSON.stringify(EMPTY))
       }
       return
     }
     if (!clientQuery.data || loadedClientId.current === clientQuery.data.id) return
     loadedClientId.current = clientQuery.data.id
     setForm(clientQuery.data)
+    setBaseline(JSON.stringify(clientQuery.data))
   }, [clientQuery.data, isNew])
 
   const save = useMutation({
@@ -822,7 +829,9 @@ function InfoForm({
     onSuccess: (client) => {
       qc.invalidateQueries({ queryKey: ['clients'] })
       qc.setQueryData(['clients', client.id], client)
-      if (isNew) navigate(`/clients/${client.id}`)
+      setBaseline(JSON.stringify(client))
+      setForm(client)
+      if (isNew) bypass(() => navigate(`/clients/${client.id}`))
       else if (onDone) onDone()
     }
   })
@@ -831,7 +840,7 @@ function InfoForm({
     mutationFn: (cid: string) => window.api.clients.delete(cid),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] })
-      navigate('/clients')
+      bypass(() => navigate('/clients'))
     }
   })
 
@@ -842,6 +851,7 @@ function InfoForm({
     },
     onSuccess: (client) => {
       setForm(client)
+      setBaseline(JSON.stringify(client))
       qc.invalidateQueries({ queryKey: ['clients'] })
       qc.setQueryData(['clients', client.id], client)
       if (onDone) onDone()
@@ -857,7 +867,7 @@ function InfoForm({
       qc.invalidateQueries({ queryKey: ['documents'] })
       qc.removeQueries({ queryKey: ['clients', clientId] })
       setPermanentDeleteOpen(false)
-      navigate('/clients')
+      bypass(() => navigate('/clients', { replace: true }))
     }
   })
 
@@ -990,6 +1000,8 @@ function InfoForm({
           }
         />
       )}
+
+      <UnsavedChangesDialog blocker={blocker} />
     </form>
   )
 }
