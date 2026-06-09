@@ -161,6 +161,19 @@ export default function SessionEditor() {
   const session: Session | undefined = sessionQuery.data ?? undefined
   const isSigned = !!session?.signed_at
   const isLegacySigned = isSigned && session?.note_format !== 'STRUCTURED'
+
+  const billingDirty = useMemo(() => {
+    if (!isSigned || !session) return false
+    const d = parseFloat(feeDollarStr)
+    const feeCents = isNaN(d) ? 0 : Math.round(d * 100)
+    return feeCents !== session.fee_cents || form.paid !== session.paid
+  }, [isSigned, session, feeDollarStr, form.paid])
+
+  function doSaveBilling(): void {
+    const d = parseFloat(feeDollarStr)
+    const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
+    save.mutate({ ...form, fee_cents })
+  }
   const duration = useMemo(() => calcDuration(form.start_time, form.end_time), [form.start_time, form.end_time])
   const cpt = useMemo(() => CPT_CODES.find((c) => c.code === form.cpt_code), [form.cpt_code])
 
@@ -390,6 +403,11 @@ export default function SessionEditor() {
 
         <SaveStatus isSigned={isSigned} signedAt={session?.signed_at ?? null} savedAt={savedAt} pending={save.isPending} />
 
+        {isSigned && billingDirty && (
+          <Btn onClick={doSaveBilling} disabled={save.isPending}>
+            {save.isPending ? 'Saving…' : 'Save billing'}
+          </Btn>
+        )}
         {!isSigned && (
           <Btn variant="secondary" onClick={() => doSave(false)} disabled={save.isPending}>
             {save.isPending ? 'Saving…' : 'Save Draft'}
@@ -616,12 +634,12 @@ export default function SessionEditor() {
                   onChange={(v) => setFeeDollarStr(v)}
                   disabled={false}
                 />
-                <label className={`flex items-center gap-2 text-base text-body ${isSigned ? 'cursor-default' : 'cursor-pointer'}`}>
+                <label className="flex items-center gap-2 text-base text-body cursor-pointer">
                   <input
                     type="checkbox"
                     checked={form.paid === 1}
                     onChange={(e) => updateForm('paid', e.target.checked ? 1 : 0)}
-                    disabled={isSigned}
+                    disabled={false}
                   />
                   Mark as paid
                 </label>
