@@ -11,6 +11,8 @@ import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Icd10Picker, parseIcd10String, serializeIcd10List } from '../components/Icd10Picker'
 import { Modal } from '../components/Modal'
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
+import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
 import { initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import { invalidateSessionDerivedQueries } from '../lib/query'
@@ -34,6 +36,25 @@ function calcDuration(start: string, end: string): number | null {
   if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null
   const minutes = eh * 60 + em - (sh * 60 + sm)
   return minutes > 0 ? minutes : null
+}
+
+function sessionSnapshot(form: SessionInput, feeDollarStr: string): string {
+  return JSON.stringify({ ...form, feeDollarStr })
+}
+
+function makeInitialForm(clientId: string | undefined): SessionInput {
+  return {
+    client_id: clientId ?? '',
+    session_date: practiceDateString(),
+    start_time: '',
+    end_time: '',
+    cpt_code: '',
+    icd10_codes: null,
+    fee_cents: 0,
+    paid: 0,
+    note_format: 'STRUCTURED',
+    note_body: serializeStructuredNote(EMPTY_STRUCTURED_NOTE)
+  }
 }
 
 function formatTimestamp(iso: string): string {
@@ -76,19 +97,13 @@ export default function SessionEditor() {
     return clinicianQuery.data?.default_fees_json ? JSON.parse(clinicianQuery.data.default_fees_json) : {}
   }, [clinicianQuery.data])
 
-  const [form, setForm] = useState<SessionInput>({
-    client_id: clientId ?? '',
-    session_date: practiceDateString(),
-    start_time: '',
-    end_time: '',
-    cpt_code: '',
-    icd10_codes: null,
-    fee_cents: 0,
-    paid: 0,
-    note_format: 'STRUCTURED',
-    note_body: serializeStructuredNote(EMPTY_STRUCTURED_NOTE)
-  })
+  const [form, setForm] = useState<SessionInput>(() => makeInitialForm(clientId))
+  const [baseline, setBaseline] = useState<string>(() =>
+    sessionSnapshot(makeInitialForm(clientId), '0')
+  )
   const [feeDollarStr, setFeeDollarStr] = useState('0')
+  const isDirty = sessionSnapshot(form, feeDollarStr) !== baseline
+  const { blocker, bypass } = useUnsavedChangesGuard(isDirty)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [amendmentDraft, setAmendmentDraft] = useState('')
   const [showAmendForm, setShowAmendForm] = useState(false)
@@ -106,9 +121,10 @@ export default function SessionEditor() {
     if (!s) return
     const isLegacy = s.note_format !== 'STRUCTURED'
     const isSignedNote = !!s.signed_at
+    let next: SessionInput
     if (isLegacy && !isSignedNote) {
       const migrated = fromLegacyBody(s.note_body)
-      setForm({
+      next = {
         client_id: s.client_id,
         session_date: s.session_date,
         start_time: s.start_time,
@@ -120,9 +136,9 @@ export default function SessionEditor() {
         note_format: 'STRUCTURED',
         note_body: serializeStructuredNote(migrated),
         id: s.id
-      })
+      }
     } else {
-      setForm({
+      next = {
         client_id: s.client_id,
         session_date: s.session_date,
         start_time: s.start_time,
@@ -134,9 +150,12 @@ export default function SessionEditor() {
         note_format: s.note_format,
         note_body: s.note_body,
         id: s.id
-      })
+      }
     }
-    setFeeDollarStr((s.fee_cents / 100).toString())
+    const feeStr = (s.fee_cents / 100).toString()
+    setForm(next)
+    setFeeDollarStr(feeStr)
+    setBaseline(sessionSnapshot(next, feeStr))
   }, [sessionQuery.data])
 
   const session: Session | undefined = sessionQuery.data ?? undefined
@@ -235,7 +254,7 @@ export default function SessionEditor() {
     mutationFn: (id: string) => window.api.sessions.delete(id),
     onSuccess: () => {
       invalidateSessionDerivedQueries(qc)
-      navigate(`/clients/${clientId}`)
+      bypass(() => navigate(`/clients/${clientId}`, { replace: true }))
     }
   })
 
@@ -256,10 +275,11 @@ export default function SessionEditor() {
     const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
     save.mutate({ ...form, fee_cents }, {
       onSuccess: (saved) => {
+        setBaseline(sessionSnapshot({ ...form, fee_cents, id: saved.id }, feeDollarStr))
         if (isNew) {
-          navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true })
+          bypass(() => navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true }))
         } else if (andClose) {
-          navigate(`/clients/${clientId}`)
+          bypass(() => navigate(`/clients/${clientId}`))
         }
       }
     })
@@ -272,7 +292,8 @@ export default function SessionEditor() {
     try {
       if (isNew) {
         const saved = await save.mutateAsync({ ...form, fee_cents })
-        navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true })
+        setBaseline(sessionSnapshot({ ...form, fee_cents, id: saved.id }, feeDollarStr))
+        bypass(() => navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true }))
         await window.api.sessions.sign({
           id: saved.id,
           body: form.note_body ?? '',
@@ -283,6 +304,7 @@ export default function SessionEditor() {
         setShowSignModal(false)
       } else {
         await save.mutateAsync({ ...form, fee_cents })
+        setBaseline(sessionSnapshot({ ...form, fee_cents }, feeDollarStr))
         await sign.mutateAsync()
       }
     } catch (err) {
@@ -368,9 +390,6 @@ export default function SessionEditor() {
 
         <SaveStatus isSigned={isSigned} signedAt={session?.signed_at ?? null} savedAt={savedAt} pending={save.isPending} />
 
-        <Btn variant="secondary" onClick={() => navigate(`/clients/${clientId}`)}>
-          Close
-        </Btn>
         {!isSigned && (
           <Btn variant="secondary" onClick={() => doSave(false)} disabled={save.isPending}>
             {save.isPending ? 'Saving…' : 'Save Draft'}
@@ -714,6 +733,8 @@ export default function SessionEditor() {
             </div>
         </Modal>
       )}
+
+      <UnsavedChangesDialog blocker={blocker} />
     </div>
   )
 }
