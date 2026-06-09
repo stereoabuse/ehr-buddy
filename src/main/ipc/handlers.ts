@@ -207,6 +207,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.APP_VERSION, () => app.getVersion())
+  ipcMain.handle(IPC.APP_DATA_DIR, () => app.getPath('userData'))
 
   // ── clients ─────────────────────────────────────────────────
   ipcMain.handle(IPC.CLIENTS_LIST, () => clientsRepo.list())

@@ -58,6 +58,7 @@ export interface Api {
   ping: () => Promise<PingResult>
   app: {
     version: () => Promise<string>
+    dataDir: () => Promise<string>
   }
   clients: {
     list: () => Promise<ClientListItem[]>
