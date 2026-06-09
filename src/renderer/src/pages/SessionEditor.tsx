@@ -23,6 +23,7 @@ import {
   RECOMMENDATION_OPTIONS,
   RISK_FACTOR_OPTIONS,
   fromLegacyBody,
+  noteHasContent,
   parseStructuredNote,
   serializeStructuredNote,
   type Recommendation,
@@ -299,7 +300,10 @@ export default function SessionEditor() {
   }
 
   async function doSign(): Promise<void> {
-    if (!validate()) return
+    if (!validate()) {
+      setSignError('Fix the highlighted fields before signing.')
+      return
+    }
     const d = parseFloat(feeDollarStr)
     const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
     try {
@@ -414,7 +418,22 @@ export default function SessionEditor() {
           </Btn>
         )}
         {!isSigned && (
-          <Btn icon="lock" onClick={() => setShowSignModal(true)} disabled={save.isPending || sign.isPending}>
+          <Btn
+            icon="lock"
+            onClick={() => {
+              if (!validate()) {
+                setSignError('Fix the highlighted fields before signing.')
+                return
+              }
+              if (!noteHasContent(form.note_format ?? 'STRUCTURED', form.note_body)) {
+                setSignError('Cannot sign an empty note.')
+                return
+              }
+              setSignError(null)
+              setShowSignModal(true)
+            }}
+            disabled={save.isPending || sign.isPending}
+          >
             Sign &amp; Lock
           </Btn>
         )}

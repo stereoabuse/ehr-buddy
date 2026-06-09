@@ -23,6 +23,7 @@ import {
   signatureImageSchema
 } from '../../shared/validation'
 import { headMatchesExtension } from '../../shared/file-magic'
+import { noteHasContent } from '../../shared/structured-note'
 import * as clientsRepo from '../db/repos/clients'
 import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
@@ -99,11 +100,16 @@ const permanentDeleteClientSchema = z.object({
   confirmation: z.string().min(1)
 })
 
-const signSchema = z.object({
-  id: z.string().min(1),
-  body: z.string().trim().min(1, 'Cannot sign an empty note'),
-  note_format: z.enum(['DAP', 'FREE', 'STRUCTURED'])
-})
+const signSchema = z
+  .object({
+    id: z.string().min(1),
+    body: z.string().trim().min(1, 'Cannot sign an empty note'),
+    note_format: z.enum(['DAP', 'FREE', 'STRUCTURED'])
+  })
+  .refine((v) => noteHasContent(v.note_format, v.body), {
+    message: 'Cannot sign an empty note',
+    path: ['body']
+  })
 
 const addAmendmentSchema = z.object({
   session_id: z.string().min(1),
