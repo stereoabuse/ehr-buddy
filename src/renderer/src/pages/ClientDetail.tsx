@@ -361,8 +361,20 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
                   <tr
                     key={s.id}
                     onClick={() => navigate(`/clients/${clientId}/sessions/${s.id}`)}
-                    className="cursor-pointer bg-surface hover:bg-canvas-2"
-                    style={{ borderBottom: i < sessions.length - 1 ? '0.5px solid var(--color-divider)' : 'none' }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigate(`/clients/${clientId}/sessions/${s.id}`)
+                      }
+                    }}
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`Open session ${s.session_date}`}
+                    className="cursor-pointer bg-surface hover:bg-canvas-2 focus-visible:bg-canvas-2"
+                    style={{
+                      borderBottom: i < sessions.length - 1 ? '0.5px solid var(--color-divider)' : 'none',
+                      outlineColor: 'var(--color-primary)'
+                    }}
                   >
                     <td className="px-3 py-2.5 font-semibold text-primary" style={{ fontVariantNumeric: 'tabular-nums' }}>
                       {s.session_date}
