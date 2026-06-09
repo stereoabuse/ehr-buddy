@@ -14,6 +14,7 @@ import { Field } from '../components/Field'
 import { Tabs } from '../components/Tabs'
 import { Disclosure } from '../components/Disclosure'
 import { PaidToggle } from '../components/PaidToggle'
+import { Modal } from '../components/Modal'
 import { fmtMoney, initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import { noteHasContent } from '@shared/structured-note'
@@ -1022,19 +1023,10 @@ function PermanentDeleteModal({
   const matches = typed === fullName
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(20,20,20,0.45)' }}
-      onClick={pending ? undefined : onCancel}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="mx-4 w-full max-w-md rounded-lg bg-surface p-5 shadow-lg"
-        style={{ border: '0.5px solid var(--color-hairline)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onCancel} closeDisabled={pending} labelledBy="permanent-delete-title" width={448}>
+      <div className="p-5">
         <h3
+          id="permanent-delete-title"
           className="m-0 text-lg font-semibold text-ink"
           style={{ fontFamily: 'var(--font-head)' }}
         >
@@ -1074,7 +1066,7 @@ function PermanentDeleteModal({
           </Btn>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 

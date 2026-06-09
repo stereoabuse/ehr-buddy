@@ -10,6 +10,7 @@ import { Pill } from '../components/Pill'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Icd10Picker, parseIcd10String, serializeIcd10List } from '../components/Icd10Picker'
+import { Modal } from '../components/Modal'
 import { initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import { invalidateSessionDerivedQueries } from '../lib/query'
@@ -659,16 +660,7 @@ export default function SessionEditor() {
 
       {/* Sign & Lock modal */}
       {showSignModal && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(31,58,54,0.32)' }}
-          onClick={() => setShowSignModal(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-[460px] overflow-hidden rounded-xl bg-surface"
-            style={{ boxShadow: '0 30px 80px rgba(0,0,0,0.3)' }}
-          >
+        <Modal onClose={() => setShowSignModal(false)} labelledBy="sign-modal-title" width={460}>
             <div
               className="flex items-center gap-3 px-6 py-5"
               style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
@@ -677,6 +669,7 @@ export default function SessionEditor() {
                 <Icon name="lock" size={18} className="text-primary" />
               </div>
               <h3
+                id="sign-modal-title"
                 className="m-0 text-lg font-semibold text-ink"
                 style={{ fontFamily: 'var(--font-head)' }}
               >
@@ -719,8 +712,7 @@ export default function SessionEditor() {
                 {sign.isPending || save.isPending ? 'Signing…' : 'Sign & Lock'}
               </Btn>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )
