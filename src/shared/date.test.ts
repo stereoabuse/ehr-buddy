@@ -143,4 +143,18 @@ describe('practiceDayBoundaryIso', () => {
   it('returns the raw input for an out-of-range day', () => {
     expect(practiceDayBoundaryIso('2026-01-40', 'start')).toBe('2026-01-40')
   })
+
+  it('returns the raw input for a day out of range for its specific month', () => {
+    // Day is within 1..31 but invalid for the month, so it must not silently
+    // roll over (Feb 31 -> Mar 3, Apr 31 -> May 1).
+    expect(practiceDayBoundaryIso('2026-02-31', 'start')).toBe('2026-02-31')
+    expect(practiceDayBoundaryIso('2026-04-31', 'start')).toBe('2026-04-31')
+    expect(practiceDayBoundaryIso('2026-06-31', 'end')).toBe('2026-06-31')
+  })
+
+  it('rejects Feb 29 in a non-leap year but accepts it in a leap year', () => {
+    // 2026 is not a leap year; 2028 is.
+    expect(practiceDayBoundaryIso('2026-02-29', 'start')).toBe('2026-02-29')
+    expect(practiceDayBoundaryIso('2028-02-29', 'start')).toBe('2028-02-29T05:00:00.000Z')
+  })
 })

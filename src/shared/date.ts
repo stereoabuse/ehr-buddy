@@ -29,6 +29,17 @@ export function practiceDayBoundaryIso(
   // Reject falsy/zero/NaN and out-of-range components so an invalid string like
   // '2026-13-05' returns unchanged instead of silently overflowing via Date.UTC.
   if (!year || !month || !day || month < 1 || month > 12 || day < 1 || day > 31) return dateStr
+  // The 1..31 bound above still admits calendar-invalid days like Feb 31 or
+  // Apr 31, which Date.UTC would silently roll into the next month. Round-trip
+  // through UTC and reject anything whose components don't survive intact.
+  const probe = new Date(Date.UTC(year, month - 1, day))
+  if (
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() !== month - 1 ||
+    probe.getUTCDate() !== day
+  ) {
+    return dateStr
+  }
 
   const utcMs = zonedTimeToUtcMs({
     year,
