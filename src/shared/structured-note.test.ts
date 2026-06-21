@@ -149,6 +149,29 @@ describe('parseStructuredNote', () => {
     expect(parsed.treatment_plan.objective_2).toBe('')
   })
 
+  it('coerces non-string nested observation/treatment_plan fields to defaults', () => {
+    // Regression: nested fields were passed through with `?? ''`, which only
+    // guards null/undefined — a non-string scalar (number/boolean/object) slipped
+    // through as a type lie and later crashed noteHasContent()'s `.trim()` call.
+    const parsed = parseStructuredNote(
+      JSON.stringify({
+        observations: { mood: 5, affect: true, cognitive_functioning: { x: 1 } },
+        treatment_plan: { objective_1: 42, objective_2: null }
+      })
+    )
+    expect(parsed.observations.mood).toBe('')
+    expect(parsed.observations.affect).toBe('')
+    expect(parsed.observations.cognitive_functioning).toBe('')
+    expect(parsed.treatment_plan.objective_1).toBe('')
+    expect(parsed.treatment_plan.objective_2).toBe('')
+  })
+
+  it('does not throw from noteHasContent on a note with non-string nested fields', () => {
+    const body = JSON.stringify({ observations: { mood: 5 }, treatment_plan: { objective_1: 42 } })
+    expect(() => noteHasContent('STRUCTURED', body)).not.toThrow()
+    expect(noteHasContent('STRUCTURED', body)).toBe(false)
+  })
+
   it('forces schemaVersion to 1 even if the stored value differs', () => {
     const parsed = parseStructuredNote(JSON.stringify({ schemaVersion: 99 }))
     expect(parsed.schemaVersion).toBe(1)

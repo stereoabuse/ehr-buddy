@@ -118,6 +118,13 @@ export function createEmptyStructuredNote(): StructuredNote {
  *  createEmptyStructuredNote() for a mutable copy. */
 export const EMPTY_STRUCTURED_NOTE: StructuredNote = createEmptyStructuredNote()
 
+/** Coerce an arbitrary stored value to a string, defaulting non-strings (and
+ *  null/undefined) to ''. Keeps parseStructuredNote's "forgiving" contract for
+ *  nested fields, which would otherwise leak non-string type lies. */
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
 /** Parse a stored note body as a structured note. Forgiving: missing fields
  *  fall back to defaults, malformed JSON returns the empty note. */
 export function parseStructuredNote(body: string | null | undefined): StructuredNote {
@@ -136,11 +143,11 @@ export function parseStructuredNote(body: string | null | undefined): Structured
     schemaVersion: 1,
     overall_notes: typeof r.overall_notes === 'string' ? r.overall_notes : '',
     observations: {
-      cognitive_functioning: r.observations?.cognitive_functioning ?? '',
-      affect: r.observations?.affect ?? '',
-      mood: r.observations?.mood ?? '',
-      interpersonal: r.observations?.interpersonal ?? '',
-      functional_status: r.observations?.functional_status ?? ''
+      cognitive_functioning: asString(r.observations?.cognitive_functioning),
+      affect: asString(r.observations?.affect),
+      mood: asString(r.observations?.mood),
+      interpersonal: asString(r.observations?.interpersonal),
+      functional_status: asString(r.observations?.functional_status)
     },
     risk_factors: Array.isArray(r.risk_factors) ? r.risk_factors.filter((x) => typeof x === 'string') : [],
     risk_factors_other: typeof r.risk_factors_other === 'string' ? r.risk_factors_other : '',
@@ -150,9 +157,9 @@ export function parseStructuredNote(body: string | null | undefined): Structured
     interventions: Array.isArray(r.interventions) ? r.interventions.filter((x) => typeof x === 'string') : [],
     interventions_other: typeof r.interventions_other === 'string' ? r.interventions_other : '',
     treatment_plan: {
-      objective_1: r.treatment_plan?.objective_1 ?? '',
-      objective_2: r.treatment_plan?.objective_2 ?? '',
-      additional_notes: r.treatment_plan?.additional_notes ?? ''
+      objective_1: asString(r.treatment_plan?.objective_1),
+      objective_2: asString(r.treatment_plan?.objective_2),
+      additional_notes: asString(r.treatment_plan?.additional_notes)
     },
     plan: typeof r.plan === 'string' ? r.plan : '',
     recommendation:
