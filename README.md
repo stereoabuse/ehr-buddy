@@ -4,7 +4,7 @@
 
 <h1 align="center">EHR Buddy</h1>
 
-<p align="center">Minimal local EHR for solo mental health practice.</p>
+<p align="center">Minimal local EHR for solo mental health practice. Client data never leaves your machine.</p> 
 
 ## What it does
 
