@@ -165,7 +165,7 @@ function GlobalSearch() {
           aria-expanded={showList}
           aria-controls="global-search-listbox"
           aria-activedescendant={
-            showList && matches.length > 0 ? `global-search-option-${highlight}` : undefined
+            matches[highlight] ? `global-search-option-${highlight}` : undefined
           }
           aria-label="Search clients"
           className="flex-1 border-0 bg-transparent text-base text-ink outline-none placeholder:text-faint"
