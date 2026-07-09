@@ -33,5 +33,6 @@ export const IPC = {
   DOCUMENTS_UPLOAD: 'documents:upload',
   DOCUMENTS_OPEN: 'documents:open',
   DOCUMENTS_DOWNLOAD: 'documents:download',
-  DOCUMENTS_DELETE: 'documents:delete'
+  DOCUMENTS_DELETE: 'documents:delete',
+  SHELL_SHOW_ITEM_IN_FOLDER: 'shell:show-item-in-folder'
 } as const

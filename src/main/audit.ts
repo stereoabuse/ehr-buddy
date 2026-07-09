@@ -6,6 +6,7 @@ import { getDb } from './db/connection'
 import { csvEscape } from '../shared/csv'
 import { practiceDateString, practiceDayBoundaryIso } from '../shared/date'
 import type { AuditAction, AuditEntity, AuditEntry, AuditFilter } from '../shared/types'
+import { recordSessionOutput } from './session-outputs'
 
 export type { AuditAction, AuditEntity, AuditEntry, AuditFilter } from '../shared/types'
 
@@ -92,6 +93,7 @@ export async function exportAuditCsv(filter: AuditFilter = {}): Promise<string |
   ]
   writeFileSync(result.filePath, lines.join('\n'), 'utf-8')
   console.log(`[audit] CSV saved to ${result.filePath}`)
+  recordSessionOutput(result.filePath)
   return result.filePath
 }
 

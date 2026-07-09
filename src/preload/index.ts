@@ -57,6 +57,9 @@ const api: Api = {
     open: (id) => ipcRenderer.invoke(IPC.DOCUMENTS_OPEN, id),
     download: (id) => ipcRenderer.invoke(IPC.DOCUMENTS_DOWNLOAD, id),
     delete: (id) => ipcRenderer.invoke(IPC.DOCUMENTS_DELETE, id)
+  },
+  shell: {
+    showItemInFolder: (path) => ipcRenderer.invoke(IPC.SHELL_SHOW_ITEM_IN_FOLDER, path)
   }
 }
 

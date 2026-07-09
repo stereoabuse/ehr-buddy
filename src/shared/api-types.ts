@@ -110,4 +110,7 @@ export interface Api {
     download: (id: string) => Promise<{ path: string } | null>
     delete: (id: string) => Promise<{ ok: boolean }>
   }
+  shell: {
+    showItemInFolder: (path: string) => Promise<{ ok: boolean }>
+  }
 }

@@ -34,6 +34,7 @@ import { generateTaxReport } from '../pdf/tax-report'
 import { generateCsvExport } from '../reports/csv-export'
 import { runBackup, runFullArchive } from '../backup'
 import { audit, exportAuditCsv, listAudit } from '../audit'
+import { isSessionOutputPath } from '../session-outputs'
 
 const clientUpsertSchema = z.object({
   id: z.string().optional(),
@@ -134,6 +135,8 @@ const auditFilterSchema = z.object({
     .optional(),
   limit: z.number().int().min(1).max(100000).optional()
 })
+
+const showItemInFolderSchema = z.string().min(1)
 
 const documentUploadSchema = z.object({
   clientId: z.string().min(1),
@@ -615,6 +618,19 @@ export function registerIpcHandlers(): void {
       client_id: doc.client_id,
       label: doc.label
     })
+    return { ok: true }
+  })
+
+  // ── shell ───────────────────────────────────────────────────
+  // Only reveal paths this main process itself wrote this session (see
+  // session-outputs.ts) — export paths are user-chosen via save dialogs, so
+  // this Set is the guard against revealing an arbitrary filesystem path.
+  ipcMain.handle(IPC.SHELL_SHOW_ITEM_IN_FOLDER, (_e, input: unknown) => {
+    const path = showItemInFolderSchema.parse(input)
+    if (!isSessionOutputPath(path)) {
+      throw new Error('This file was not written during this session and cannot be revealed.')
+    }
+    shell.showItemInFolder(path)
     return { ok: true }
   })
 }

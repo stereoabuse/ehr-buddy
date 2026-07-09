@@ -7,6 +7,7 @@ import * as clientsRepo from '../db/repos/clients'
 import * as sessionsRepo from '../db/repos/sessions'
 import type { Session, Client, Clinician } from '../../shared/types'
 import { practiceUsDateString } from '../../shared/date'
+import { recordSessionOutput } from '../session-outputs'
 
 const CPT_LABELS: Record<string, string> = {
   '90791': 'Psychiatric Diagnostic Evaluation',
@@ -48,6 +49,7 @@ export async function generateSuperbill(args: SuperbillArgs): Promise<string | n
 
   await writePdf(result.filePath, clinician, client, sessions)
   console.log(`[superbill] saved to ${result.filePath}`)
+  recordSessionOutput(result.filePath)
   return result.filePath
 }
 

@@ -5,6 +5,7 @@ import archiver from 'archiver'
 import { getDb, dbPath } from './db/connection'
 import { csvEscape } from '../shared/csv'
 import { practiceDateString } from '../shared/date'
+import { recordSessionOutput } from './session-outputs'
 
 export async function runBackup(): Promise<string | null> {
   const db = getDb()
@@ -24,6 +25,7 @@ export async function runBackup(): Promise<string | null> {
   // Restrict the PHI backup to the owner (POSIX only).
   if (process.platform !== 'win32') chmodSync(result.filePath, 0o600)
   console.log(`[backup] saved to ${result.filePath}`)
+  recordSessionOutput(result.filePath)
   return result.filePath
 }
 
@@ -69,6 +71,7 @@ export async function runFullArchive(): Promise<string | null> {
   // Restrict the PHI archive to the owner (POSIX only).
   if (process.platform !== 'win32') chmodSync(result.filePath, 0o600)
   console.log(`[archive] saved to ${result.filePath}`)
+  recordSessionOutput(result.filePath)
   return result.filePath
 }
 

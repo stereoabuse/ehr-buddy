@@ -5,6 +5,7 @@ import { join } from 'path'
 import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
 import { practiceUsDateString } from '../../shared/date'
+import { recordSessionOutput } from '../session-outputs'
 
 const CPT_LABELS: Record<string, string> = {
   '90791': 'Psychiatric Diagnostic Evaluation',
@@ -39,6 +40,7 @@ export async function generateTaxReport(args: ReportArgs): Promise<string | null
 
   await writePdf(result.filePath, clinician, sessions, args)
   console.log(`[tax-report] saved to ${result.filePath}`)
+  recordSessionOutput(result.filePath)
   return result.filePath
 }
 

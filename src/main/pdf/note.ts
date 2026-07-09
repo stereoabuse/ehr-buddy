@@ -16,6 +16,7 @@ import {
   type StructuredNote,
   type StructuredObservations
 } from '../../shared/structured-note'
+import { recordSessionOutput } from '../session-outputs'
 
 interface NotePdfArgs {
   sessionId: string
@@ -56,6 +57,7 @@ export async function generateNotePdf(args: NotePdfArgs): Promise<string | null>
 
   await writePdf(result.filePath, clinician, client, session, amendments)
   console.log(`[note-pdf] saved to ${result.filePath}`)
+  recordSessionOutput(result.filePath)
   return result.filePath
 }
 

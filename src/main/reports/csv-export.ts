@@ -3,6 +3,7 @@ import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { csvEscape } from '../../shared/csv'
 import * as sessionsRepo from '../db/repos/sessions'
+import { recordSessionOutput } from '../session-outputs'
 
 const CPT_LABELS: Record<string, string> = {
   '90791': 'Psychiatric Diagnostic Evaluation',
@@ -74,5 +75,6 @@ export async function generateCsvExport(args: CsvArgs): Promise<string | null> {
 
   writeFileSync(result.filePath, csv, 'utf-8')
   console.log(`[csv-export] saved to ${result.filePath}`)
+  recordSessionOutput(result.filePath)
   return result.filePath
 }
