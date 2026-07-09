@@ -397,7 +397,7 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
                       <PaidToggle
                         paid={s.paid}
                         onToggle={() => { setPaidError(null); togglePaid.mutate({ id: s.id, paid: s.paid === 1 ? 0 : 1 }) }}
-                        pending={togglePaid.isPending}
+                        pending={togglePaid.isPending && togglePaid.variables?.id === s.id}
                       />
                     </td>
                     <td className="px-3 py-2.5">
