@@ -9,8 +9,15 @@ import { Btn } from '../components/Btn'
 import { Icon } from '../components/Icon'
 import { fmtMoney, initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
+import { sortRoster, type SortKey, type SortDirection } from '../lib/rosterSort'
 
 type Filter = 'all' | 'active' | 'inactive' | 'has-balance' | 'unsigned'
+
+const SORTABLE_COLUMNS: { key: SortKey; label: string }[] = [
+  { key: 'name', label: 'Client' },
+  { key: 'lastSession', label: 'Last session' },
+  { key: 'balance', label: 'Balance' }
+]
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -34,6 +41,8 @@ export default function ClientList() {
   })
 
   const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('name')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [searchParams, setSearchParams] = useSearchParams()
   const filterParam = searchParams.get('filter')
   const filter: Filter = isFilterId(filterParam) ? filterParam : 'all'
@@ -49,9 +58,18 @@ export default function ClientList() {
     )
   }
 
+  function toggleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDirection('asc')
+    }
+  }
+
   const rows = useMemo(() => {
     const base = data ?? []
-    return base.filter((r) => {
+    const filtered = base.filter((r) => {
       if (filter === 'active' && r.active !== 1) return false
       if (filter === 'inactive' && r.active !== 0) return false
       if (filter === 'has-balance' && r.unpaid_count === 0) return false
@@ -64,7 +82,8 @@ export default function ClientList() {
       }
       return true
     })
-  }, [data, filter, search])
+    return sortRoster(filtered, sortKey, sortDirection)
+  }, [data, filter, search, sortKey, sortDirection])
 
   return (
     <div className="mx-auto max-w-[1280px]">
@@ -147,15 +166,46 @@ export default function ClientList() {
           <table className="w-full border-collapse text-base">
             <thead>
               <tr className="bg-canvas-2">
-                {['Client', 'Diagnosis', 'Phone', 'Last session', 'Balance', 'Status'].map((h) => (
-                  <th
-                    key={h}
-                    className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.4px] text-muted"
-                    style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
-                  >
-                    {h}
-                  </th>
-                ))}
+                {['Client', 'Diagnosis', 'Phone', 'Last session', 'Balance', 'Status'].map((h) => {
+                  const column = SORTABLE_COLUMNS.find((c) => c.label === h)
+                  if (!column) {
+                    return (
+                      <th
+                        key={h}
+                        className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.4px] text-muted"
+                        style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
+                      >
+                        {h}
+                      </th>
+                    )
+                  }
+                  const isActive = sortKey === column.key
+                  const ariaSort: 'ascending' | 'descending' | 'none' = isActive
+                    ? sortDirection === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                  return (
+                    <th
+                      key={h}
+                      aria-sort={ariaSort}
+                      className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.4px] text-muted"
+                      style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(column.key)}
+                        className={[
+                          'flex items-center gap-1 bg-transparent p-0 text-[11px] font-semibold uppercase tracking-[0.4px] transition-colors',
+                          isActive ? 'text-ink' : 'text-muted hover:text-body'
+                        ].join(' ')}
+                      >
+                        {h}
+                        <SortIndicator active={isActive} direction={sortDirection} />
+                      </button>
+                    </th>
+                  )
+                })}
               </tr>
             </thead>
             <tbody>
@@ -253,6 +303,30 @@ function ClientRow({ row, isLast, onOpen }: { row: RosterRow; isLast: boolean; o
         </div>
       </td>
     </tr>
+  )
+}
+
+function SortIndicator({ active, direction }: { active: boolean; direction: SortDirection }) {
+  const pointingDown = active ? direction === 'desc' : false
+  return (
+    <svg
+      width={10}
+      height={10}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={active ? 'text-ink' : 'text-faint'}
+      style={{
+        transform: pointingDown ? 'rotate(180deg)' : undefined,
+        opacity: active ? 1 : 0.5
+      }}
+      aria-hidden="true"
+    >
+      <path d="m18 15-6-6-6 6" />
+    </svg>
   )
 }
 
