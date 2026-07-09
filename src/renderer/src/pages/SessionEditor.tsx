@@ -19,6 +19,7 @@ import { initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import { invalidateSessionDerivedQueries } from '../lib/query'
 import { parseFeeDollars } from '../lib/fee'
+import { debounce } from '../lib/debounce'
 import {
   EMPTY_STRUCTURED_NOTE,
   INTERVENTION_OPTIONS,
@@ -352,6 +353,75 @@ export default function SessionEditor() {
       }
     })
   }
+
+  // ─── Autosave (unsigned drafts only) + Cmd/Ctrl+S ──────────────────────
+  // A single ref snapshot, refreshed every render, is what the debounced
+  // timer and the keydown handler both read at *fire time* — never at
+  // schedule/attach time — so a save or sign that starts mid-debounce is
+  // seen before we'd otherwise race it. `isNew` is only consulted by the
+  // autosave callback: the decision (see task-13 report) is to leave
+  // brand-new, unsaved sessions out of autosave entirely until the first
+  // manual Save Draft (or Cmd+S) creates the record, avoiding the
+  // create-and-redirect navigation firing under the user while they type.
+  // Cmd+S has no such restriction — it's the same explicit action as
+  // clicking Save Draft, for both new and existing sessions.
+  const autosaveSnapshotRef = useRef({
+    isSigned,
+    isNew,
+    dirty: isDirty,
+    feeCents,
+    signing,
+    savePending: save.isPending,
+    signPending: sign.isPending,
+    doSave
+  })
+  autosaveSnapshotRef.current = {
+    isSigned,
+    isNew,
+    dirty: isDirty,
+    feeCents,
+    signing,
+    savePending: save.isPending,
+    signPending: sign.isPending,
+    doSave
+  }
+
+  const autosaveDebouncerRef = useRef<{ call: () => void; cancel: () => void } | null>(null)
+  if (!autosaveDebouncerRef.current) {
+    autosaveDebouncerRef.current = debounce(() => {
+      const snap = autosaveSnapshotRef.current
+      if (snap.isSigned || snap.isNew || snap.signing || snap.savePending || snap.signPending) return
+      if (!snap.dirty || snap.feeCents === null) return
+      snap.doSave(false)
+    }, 3000)
+  }
+
+  // Reschedule on every edit to the form/fee. Guarding on isSigned/isNew here
+  // only avoids arming pointless timers; the authoritative check happens
+  // above when the timer actually fires.
+  useEffect(() => {
+    if (isSigned || isNew) return
+    autosaveDebouncerRef.current?.call()
+  }, [form, feeDollarStr, isSigned, isNew])
+
+  // Cancel on unmount so a pending autosave can never fire (and call
+  // doSave/navigate) after the editor has gone away.
+  useEffect(() => {
+    return () => autosaveDebouncerRef.current?.cancel()
+  }, [])
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent): void {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 's') return
+      e.preventDefault()
+      const snap = autosaveSnapshotRef.current
+      if (snap.isSigned || snap.signing || snap.savePending || snap.signPending) return
+      if (!snap.dirty || snap.feeCents === null) return
+      snap.doSave(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   async function doSign(): Promise<void> {
     if (signing) return
