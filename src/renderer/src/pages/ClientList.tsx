@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { RosterRow } from '@shared/types'
 import { Card } from '../components/Card'
 import { Pill } from '../components/Pill'
@@ -20,6 +20,12 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'unsigned', label: 'Unsigned notes' }
 ]
 
+const FILTER_IDS: readonly Filter[] = FILTERS.map((f) => f.id)
+
+function isFilterId(value: string | null): value is Filter {
+  return value != null && (FILTER_IDS as readonly string[]).includes(value)
+}
+
 export default function ClientList() {
   const navigate = useNavigate()
   const { data, isLoading, error } = useQuery({
@@ -28,7 +34,20 @@ export default function ClientList() {
   })
 
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<Filter>('all')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filterParam = searchParams.get('filter')
+  const filter: Filter = isFilterId(filterParam) ? filterParam : 'all'
+
+  function setFilter(f: Filter) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('filter', f)
+        return next
+      },
+      { replace: true }
+    )
+  }
 
   const rows = useMemo(() => {
     const base = data ?? []

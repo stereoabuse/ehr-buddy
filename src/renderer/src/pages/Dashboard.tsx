@@ -25,6 +25,15 @@ export default function Dashboard() {
   const unpaidClientIds = new Set(unpaid.map((x) => x.client_id))
   const unsignedTotal = rosterRows.reduce((s, r) => s + r.unsigned_count, 0)
 
+  const queryErrors: { label: string; error: unknown }[] = []
+  if (clients.isError) queryErrors.push({ label: 'clients', error: clients.error })
+  if (todaySessions.isError) queryErrors.push({ label: "today's sessions", error: todaySessions.error })
+  if (unpaidSessions.isError) queryErrors.push({ label: 'unpaid sessions', error: unpaidSessions.error })
+  if (roster.isError) queryErrors.push({ label: 'client roster', error: roster.error })
+
+  const scheduleUnavailable = todaySessions.isPending || todaySessions.isError
+  const todoUnavailable = todaySessions.isPending || todaySessions.isError || unpaidSessions.isPending || unpaidSessions.isError
+
   // Per-client outstanding balances
   const balanceByClient = new Map<string, { name: string; clientId: string; total: number; count: number }>()
   for (const s of unpaid) {
@@ -68,6 +77,19 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-[1180px]">
+      {queryErrors.length > 0 && (
+        <div
+          role="alert"
+          className="mb-4 flex items-start gap-2.5 rounded-lg bg-surface px-4 py-3"
+          style={{ border: '0.5px solid var(--color-danger)' }}
+        >
+          <Icon name="alert" size={16} className="mt-0.5 shrink-0 text-danger" />
+          <p className="m-0 text-base text-danger">
+            Couldn't load {queryErrors.map((q) => q.label).join(', ')}: {queryErrors.map((q) => String(q.error)).join('; ')}
+          </p>
+        </div>
+      )}
+
       {/* KPI strip */}
       <div className="mb-6 grid grid-cols-4 gap-3.5">
         <KpiCard
@@ -75,24 +97,34 @@ export default function Dashboard() {
           value={String(today.length)}
           sub={today.length === 0 ? 'Nothing scheduled' : describeScheduleSummary(today.length, todayUnsigned.length)}
           tone="primary"
+          isPending={todaySessions.isPending}
+          isError={todaySessions.isError}
         />
         <KpiCard
           label="Active clients"
           value={String(activeCount)}
           sub={`${allClients.length} total`}
           tone="ink"
+          isPending={clients.isPending}
+          isError={clients.isError}
         />
         <KpiCard
           label="Outstanding"
           value={fmtMoney(unpaidTotal)}
           sub={unpaidClientIds.size === 0 ? 'All paid up' : `${unpaidClientIds.size} client${unpaidClientIds.size === 1 ? '' : 's'}`}
           tone="danger"
+          isPending={unpaidSessions.isPending}
+          isError={unpaidSessions.isError}
+          to="/clients?filter=has-balance"
         />
         <KpiCard
           label="Unsigned notes"
           value={String(unsignedTotal)}
           sub={unsignedTotal === 0 ? 'Nothing pending' : 'Past sessions'}
           tone="warn"
+          isPending={roster.isPending}
+          isError={roster.isError}
+          to="/clients?filter=unsigned"
         />
       </div>
 
@@ -107,7 +139,13 @@ export default function Dashboard() {
               View clients <Icon name="chevR" size={12} />
             </Link>
           </SectionHeader>
-          {today.length === 0 ? (
+          {scheduleUnavailable ? (
+            todaySessions.isError ? (
+              <EmptyRow tone="danger">Couldn't load today's schedule.</EmptyRow>
+            ) : (
+              <SkeletonRows count={3} />
+            )
+          ) : today.length === 0 ? (
             <EmptyRow>No sessions logged today.</EmptyRow>
           ) : (
             <div>
@@ -154,7 +192,13 @@ export default function Dashboard() {
           <SectionHeader title="To-do">
             {overdueCount > 0 && <Pill tone="danger">{overdueCount} overdue</Pill>}
           </SectionHeader>
-          {todos.length === 0 ? (
+          {todoUnavailable ? (
+            todaySessions.isError || unpaidSessions.isError ? (
+              <EmptyRow tone="danger">Couldn't load to-do items.</EmptyRow>
+            ) : (
+              <SkeletonRows count={2} />
+            )
+          ) : todos.length === 0 ? (
             <EmptyRow>All caught up — nothing on your list.</EmptyRow>
           ) : (
             <div>
@@ -183,40 +227,66 @@ export default function Dashboard() {
       </div>
 
       {/* Outstanding balances */}
-      {outstandingClients.length > 0 && (
+      {unpaidSessions.isPending ? (
         <Card padding={0}>
           <SectionHeader title="Outstanding balances">
-            <span
-              className="text-xl font-semibold text-danger"
-              style={{ fontFamily: 'var(--font-head)', letterSpacing: '-0.3px' }}
-            >
-              {fmtMoney(unpaidTotal)}
-            </span>
+            <div className="h-5 w-16 animate-pulse rounded bg-canvas-2" />
           </SectionHeader>
           <div className="grid grid-cols-4">
-            {outstandingClients.slice(0, 8).map((c, i) => (
-              <Link
-                key={c.clientId}
-                to={`/clients/${c.clientId}`}
-                className="flex items-center gap-2.5 px-5 py-3.5 transition-colors hover:bg-canvas-2"
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-2.5 px-5 py-3.5"
                 style={{
-                  borderRight: (i + 1) % 4 !== 0 ? '0.5px solid var(--color-divider)' : 'none',
-                  borderTop: i >= 4 ? '0.5px solid var(--color-divider)' : 'none'
+                  borderRight: (i + 1) % 4 !== 0 ? '0.5px solid var(--color-divider)' : 'none'
                 }}
               >
-                <Avatar
-                  initials={initialsOf(c.name.split(' ')[0] ?? '', c.name.split(' ').slice(-1)[0] ?? '')}
-                  color={avatarColorFor(c.clientId)}
-                  size={28}
-                />
+                <div className="h-7 w-7 shrink-0 animate-pulse rounded-full bg-canvas-2" />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-base font-semibold text-ink">{c.name}</div>
-                  <div className="text-sm font-semibold text-danger">{fmtMoney(c.total)}</div>
+                  <div className="h-3.5 w-2/3 animate-pulse rounded bg-canvas-2" />
+                  <div className="mt-1.5 h-3 w-1/3 animate-pulse rounded bg-canvas-2" />
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </Card>
+      ) : (
+        !unpaidSessions.isError &&
+        outstandingClients.length > 0 && (
+          <Card padding={0}>
+            <SectionHeader title="Outstanding balances">
+              <span
+                className="text-xl font-semibold text-danger"
+                style={{ fontFamily: 'var(--font-head)', letterSpacing: '-0.3px' }}
+              >
+                {fmtMoney(unpaidTotal)}
+              </span>
+            </SectionHeader>
+            <div className="grid grid-cols-4">
+              {outstandingClients.slice(0, 8).map((c, i) => (
+                <Link
+                  key={c.clientId}
+                  to={`/clients/${c.clientId}`}
+                  className="flex items-center gap-2.5 px-5 py-3.5 transition-colors hover:bg-canvas-2"
+                  style={{
+                    borderRight: (i + 1) % 4 !== 0 ? '0.5px solid var(--color-divider)' : 'none',
+                    borderTop: i >= 4 ? '0.5px solid var(--color-divider)' : 'none'
+                  }}
+                >
+                  <Avatar
+                    initials={initialsOf(c.name.split(' ')[0] ?? '', c.name.split(' ').slice(-1)[0] ?? '')}
+                    color={avatarColorFor(c.clientId)}
+                    size={28}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-base font-semibold text-ink">{c.name}</div>
+                    <div className="text-sm font-semibold text-danger">{fmtMoney(c.total)}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        )
       )}
     </div>
   )
@@ -243,20 +313,48 @@ function SectionHeader({ title, children }: { title: string; children?: React.Re
   )
 }
 
-function EmptyRow({ children }: { children: React.ReactNode }) {
-  return <div className="px-5 py-6 text-base text-muted">{children}</div>
+function EmptyRow({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 'muted' | 'danger' }) {
+  return <div className={`px-5 py-6 text-base ${tone === 'danger' ? 'text-danger' : 'text-muted'}`}>{children}</div>
+}
+
+/** Pulsing placeholder rows used while a list-backed section's query is still loading. */
+function SkeletonRows({ count }: { count: number }) {
+  return (
+    <div>
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-3.5 px-5 py-3.5"
+          style={{ borderBottom: i < count - 1 ? '0.5px solid var(--color-divider)' : 'none' }}
+        >
+          <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-canvas-2" />
+          <div className="min-w-0 flex-1">
+            <div className="h-3.5 w-1/3 animate-pulse rounded bg-canvas-2" />
+            <div className="mt-1.5 h-3 w-1/4 animate-pulse rounded bg-canvas-2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function KpiCard({
   label,
   value,
   sub,
-  tone
+  tone,
+  to,
+  isPending,
+  isError
 }: {
   label: string
   value: string
   sub: string
   tone: 'primary' | 'ink' | 'danger' | 'warn'
+  /** When set, the whole card becomes a keyboard-accessible link. */
+  to?: string
+  isPending?: boolean
+  isError?: boolean
 }) {
   const valueClass = {
     primary: 'text-primary',
@@ -264,8 +362,26 @@ function KpiCard({
     danger: 'text-danger',
     warn: 'text-warn'
   }[tone]
-  return (
-    <Card padding={18}>
+
+  const body = isPending ? (
+    <>
+      <div className="text-[11.5px] font-semibold uppercase tracking-[0.4px] text-muted">{label}</div>
+      <div className="mt-2 h-7 w-16 animate-pulse rounded bg-canvas-2" />
+      <div className="mt-2.5 h-3.5 w-24 animate-pulse rounded bg-canvas-2" />
+    </>
+  ) : isError ? (
+    <>
+      <div className="text-[11.5px] font-semibold uppercase tracking-[0.4px] text-muted">{label}</div>
+      <div
+        className="mt-1.5 text-3xl font-semibold text-danger"
+        style={{ fontFamily: 'var(--font-head)', letterSpacing: '-0.5px' }}
+      >
+        —
+      </div>
+      <div className="mt-0.5 text-sm text-danger">Couldn't load</div>
+    </>
+  ) : (
+    <>
       <div className="text-[11.5px] font-semibold uppercase tracking-[0.4px] text-muted">{label}</div>
       <div
         className={`mt-1.5 text-3xl font-semibold ${valueClass}`}
@@ -274,6 +390,16 @@ function KpiCard({
         {value}
       </div>
       <div className="mt-0.5 text-sm text-muted">{sub}</div>
-    </Card>
+    </>
   )
+
+  if (to) {
+    return (
+      <Card padding={18} to={to}>
+        {body}
+      </Card>
+    )
+  }
+
+  return <Card padding={18}>{body}</Card>
 }
