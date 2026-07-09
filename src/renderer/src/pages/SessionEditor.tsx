@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Session, SessionInput } from '@shared/types'
@@ -218,6 +218,10 @@ export default function SessionEditor() {
       .filter((s) => s.id !== sessionId)
       .sort((a, b) => b.session_date.localeCompare(a.session_date))[0]
   }, [lastSessionQuery.data, sessionId])
+  // Kept current every render so confirm-dialog callbacks (which may fire
+  // after a refetch) read live data instead of a stale closure.
+  const lastSessionRef = useRef(lastSession)
+  lastSessionRef.current = lastSession
 
   function updateForm<K extends keyof SessionInput>(key: K, value: SessionInput[K]): void {
     setForm((f) => ({ ...f, [key]: value }))
@@ -358,8 +362,19 @@ export default function SessionEditor() {
   function copyFromLastNote(): void {
     if (!lastSession) return
     if (lastSession.note_format === 'STRUCTURED') {
-      const last = parseStructuredNote(lastSession.note_body)
-      const apply = () => setForm((f) => ({ ...f, note_body: serializeStructuredNote(last) }))
+      // Recompute from the live ref at confirm time: lastSessionQuery may
+      // have refetched while the dialog was open, so the value captured at
+      // dialog-open time could be stale.
+      const apply = () => {
+        const current = lastSessionRef.current
+        if (!current) {
+          setConfirmDialog(null)
+          return
+        }
+        const last = parseStructuredNote(current.note_body)
+        setForm((f) => ({ ...f, note_body: serializeStructuredNote(last) }))
+        setConfirmDialog(null)
+      }
       // Replace, but keep the user's draft warning if anything's been entered.
       const noteHasAnything =
         note.overall_notes ||
@@ -372,10 +387,7 @@ export default function SessionEditor() {
           title: 'Replace current note?',
           message: "Replace the current note with the previous session's structured note?",
           confirmLabel: 'Replace',
-          onConfirm: () => {
-            apply()
-            setConfirmDialog(null)
-          }
+          onConfirm: apply
         })
         return
       }
@@ -384,16 +396,23 @@ export default function SessionEditor() {
       // Legacy: drop the body into Overall Notes.
       const overall = (lastSession.note_body ?? '').trim()
       if (!overall) return
-      const apply = () => updateNote({ overall_notes: overall })
+      // Recompute from the live ref at confirm time (same reasoning as above).
+      const apply = () => {
+        const current = lastSessionRef.current
+        const currentOverall = (current?.note_body ?? '').trim()
+        if (!current || !currentOverall) {
+          setConfirmDialog(null)
+          return
+        }
+        updateNote({ overall_notes: currentOverall })
+        setConfirmDialog(null)
+      }
       if (note.overall_notes) {
         setConfirmDialog({
           title: 'Replace current notes?',
           message: 'Replace the current Overall Notes with the previous session?',
           confirmLabel: 'Replace',
-          onConfirm: () => {
-            apply()
-            setConfirmDialog(null)
-          }
+          onConfirm: apply
         })
         return
       }
