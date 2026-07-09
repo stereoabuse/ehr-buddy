@@ -22,13 +22,17 @@ export function useUnsavedChangesGuard(isDirty: boolean) {
     )
   )
 
+  // Window close/quit protection lives in the main process (native dialog on
+  // the BrowserWindow's 'close' event) because a renderer beforeunload
+  // listener that calls preventDefault() cancels Electron's close with no
+  // dialog at all. Just notify main of the current dirty flag; reset on
+  // unmount so a stale "dirty" can't outlive the form that set it.
   useEffect(() => {
-    function onBeforeUnload(e: BeforeUnloadEvent) {
-      if (dirtyRef.current && !bypassRef.current) e.preventDefault()
+    window.api.app.setUnsavedChanges(isDirty)
+    return () => {
+      window.api.app.setUnsavedChanges(false)
     }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [])
+  }, [isDirty])
 
   const bypass = useCallback(<T,>(fn: () => T): T => {
     bypassRef.current = true

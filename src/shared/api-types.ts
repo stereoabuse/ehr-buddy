@@ -59,6 +59,7 @@ export interface Api {
   app: {
     version: () => Promise<string>
     dataDir: () => Promise<string>
+    setUnsavedChanges: (dirty: boolean) => void
   }
   clients: {
     list: () => Promise<ClientListItem[]>

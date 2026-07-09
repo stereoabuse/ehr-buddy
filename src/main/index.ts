@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, session, shell } from 'electron'
+import { app, BrowserWindow, Menu, dialog, ipcMain, session, shell } from 'electron'
 import type { MenuItemConstructorOptions } from 'electron'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
@@ -6,6 +6,7 @@ import { registerIpcHandlers } from './ipc/handlers'
 import { getDb, closeDb } from './db/connection'
 import { audit } from './audit'
 import { migrateLegacyWindowsUserData } from './migrate-legacy-userdata'
+import { IPC } from '../shared/ipc-channels'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -23,6 +24,14 @@ app.setName('EHR Buddy')
 // need a runtime path.
 const devIconPath = join(__dirname, '../../resources/icon.png')
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['https:', 'http:', 'mailto:'])
+
+// Renderer-reported "does the open form have unsaved changes" flag. Drives
+// the native close-confirmation dialog below. Reset on reload/navigation so
+// a stale true can't outlive the form that set it.
+let hasUnsavedChanges = false
+// Distinguishes a full app quit (Cmd+Q, dock > Quit) from an ordinary window
+// close (Cmd+W, red button): before-quit only fires for the former.
+let isQuitRequested = false
 
 function openAllowedExternalUrl(rawUrl: string): void {
   try {
@@ -169,6 +178,38 @@ function createWindow(): void {
     if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: 'right' })
   })
 
+  // Block close (window or quit) while a form is dirty; confirm via native
+  // dialog rather than the renderer beforeunload, which Electron cancels
+  // with no visible prompt at all.
+  mainWindow.on('close', (event) => {
+    if (!hasUnsavedChanges) return
+    event.preventDefault()
+    const quitRequested = isQuitRequested
+    isQuitRequested = false
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: 'warning',
+      buttons: ['Keep editing', 'Discard changes'],
+      defaultId: 0,
+      cancelId: 0,
+      message: 'You have unsaved changes.',
+      detail: 'If you discard changes, your unsaved edits will be lost.'
+    })
+    if (choice === 1) {
+      hasUnsavedChanges = false
+      mainWindow.destroy()
+      // preventDefault() above aborted any in-progress quit sequence; if this
+      // close was part of a quit request, restart it now that the window is
+      // actually gone.
+      if (quitRequested) app.quit()
+    }
+  })
+
+  // A real page reload/navigation bypasses the in-app router, so reset the
+  // flag rather than leave it stuck true for a page that no longer exists.
+  mainWindow.webContents.on('did-navigate', () => {
+    hasUnsavedChanges = false
+  })
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     openAllowedExternalUrl(url)
     return { action: 'deny' }
@@ -210,6 +251,9 @@ if (!gotLock) {
     getDb()
     audit('app_start', 'app', null, { version: app.getVersion() })
     registerIpcHandlers()
+    ipcMain.on(IPC.APP_SET_UNSAVED_CHANGES, (_e, dirty: unknown) => {
+      hasUnsavedChanges = Boolean(dirty)
+    })
     createWindow()
 
     app.on('activate', () => {
@@ -222,6 +266,13 @@ if (!gotLock) {
   })
 
   app.on('before-quit', () => {
+    isQuitRequested = true
+  })
+
+  // Fires only once the quit is actually proceeding (i.e. not aborted by the
+  // close handler's preventDefault() above), so a cancelled/discarded quit
+  // never leaves the app running with its db connection already closed.
+  app.on('will-quit', () => {
     closeDb()
   })
 }
