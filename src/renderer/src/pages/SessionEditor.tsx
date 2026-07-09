@@ -224,6 +224,31 @@ export default function SessionEditor() {
   const lastSessionRef = useRef(lastSession)
   lastSessionRef.current = lastSession
 
+  // Prefill a brand-new session's billing fields from the client's last
+  // session (CPT, ICD-10, fee), once, as soon as lastSession is available.
+  // One-shot ref: lastSession loads async and the user may start typing
+  // before it arrives, so we only apply if the form is still pristine
+  // (matches baseline exactly). Updating baseline alongside form/feeDollarStr
+  // is what keeps this from arming isDirty / the unsaved-changes guard.
+  // Note fields are intentionally excluded — that stays behind the explicit
+  // "Copy from last note" button.
+  const lastSessionPrefillDone = useRef(false)
+  useEffect(() => {
+    if (!isNew || lastSessionPrefillDone.current || !lastSession) return
+    lastSessionPrefillDone.current = true
+    if (sessionSnapshot(form, feeDollarStr) !== baseline) return
+    const feeStr = (lastSession.fee_cents / 100).toString()
+    const next: SessionInput = {
+      ...form,
+      cpt_code: lastSession.cpt_code,
+      icd10_codes: lastSession.icd10_codes,
+      fee_cents: lastSession.fee_cents
+    }
+    setForm(next)
+    setFeeDollarStr(feeStr)
+    setBaseline(sessionSnapshot(next, feeStr))
+  }, [isNew, lastSession, form, baseline, feeDollarStr])
+
   function updateForm<K extends keyof SessionInput>(key: K, value: SessionInput[K]): void {
     setForm((f) => ({ ...f, [key]: value }))
   }
