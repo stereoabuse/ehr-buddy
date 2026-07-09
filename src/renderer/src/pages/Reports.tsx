@@ -4,6 +4,7 @@ import type { ReportArgs } from '@shared/api-types'
 import { practiceDateString, practiceYearStartString } from '@shared/date'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
+import { DateRangePresets } from '../components/DateRangePresets'
 import { Field } from '../components/Field'
 import { showInFinderAction, useToast } from '../components/Toast'
 
@@ -59,6 +60,9 @@ export default function Reports() {
         <div className="grid grid-cols-2 gap-4 px-[18px] py-4">
           <Field label="From" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           <Field label="To" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+        </div>
+        <div className="px-[18px] pb-4">
+          <DateRangePresets onSelect={(start, end) => { setFromDate(start); setToDate(end) }} />
         </div>
         <div className="px-[18px] pb-4">
           <label className="flex cursor-pointer items-center gap-2 text-base text-body">

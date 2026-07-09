@@ -4,6 +4,7 @@ import type { AuditEntity } from '@shared/types'
 import { practiceDateString, practiceYearStartString } from '@shared/date'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
+import { DateRangePresets } from '../components/DateRangePresets'
 import { Field } from '../components/Field'
 import { showInFinderAction, useToast } from '../components/Toast'
 
@@ -77,6 +78,9 @@ export default function Activity() {
               ))}
             </select>
           </label>
+        </div>
+        <div className="px-[18px] pb-4">
+          <DateRangePresets onSelect={(start, end) => { setFromDate(start); setToDate(end) }} />
         </div>
       </Card>
 

@@ -10,6 +10,7 @@ import { Card } from '../components/Card'
 import { Pill } from '../components/Pill'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { DateRangePresets } from '../components/DateRangePresets'
 import { Field } from '../components/Field'
 import { Tabs } from '../components/Tabs'
 import { Disclosure } from '../components/Disclosure'
@@ -525,6 +526,9 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
         <div className="grid grid-cols-2 gap-4 px-[18px] py-4">
           <Field label="From" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           <Field label="To" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+        </div>
+        <div className="px-[18px] pb-4">
+          <DateRangePresets onSelect={(start, end) => { setFromDate(start); setToDate(end) }} />
         </div>
         <div className="px-[18px] pb-4 text-sm text-muted">
           <span className="font-semibold text-body">{inRange.length}</span> session{inRange.length === 1 ? '' : 's'} ·{' '}
