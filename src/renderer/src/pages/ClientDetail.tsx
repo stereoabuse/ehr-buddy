@@ -362,6 +362,7 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
                     key={s.id}
                     onClick={() => navigate(`/clients/${clientId}/sessions/${s.id}`)}
                     onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
                         navigate(`/clients/${clientId}/sessions/${s.id}`)

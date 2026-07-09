@@ -164,6 +164,7 @@ function ClientRow({ row, isLast, onOpen }: { row: RosterRow; isLast: boolean; o
     <tr
       onClick={onOpen}
       onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           onOpen()
