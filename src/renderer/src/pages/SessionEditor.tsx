@@ -103,10 +103,10 @@ export default function SessionEditor() {
     sessionSnapshot(makeInitialForm(clientId), '0')
   )
   const [feeDollarStr, setFeeDollarStr] = useState('0')
-  const isDirty = sessionSnapshot(form, feeDollarStr) !== baseline
+  const [amendmentDraft, setAmendmentDraft] = useState('')
+  const isDirty = sessionSnapshot(form, feeDollarStr) !== baseline || amendmentDraft.trim() !== ''
   const { blocker, bypass } = useUnsavedChangesGuard(isDirty)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [amendmentDraft, setAmendmentDraft] = useState('')
   const [showAmendForm, setShowAmendForm] = useState(false)
   const [showSignModal, setShowSignModal] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
