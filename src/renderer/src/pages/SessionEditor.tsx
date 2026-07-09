@@ -168,10 +168,20 @@ export default function SessionEditor() {
       }
     }
     const feeStr = (s.fee_cents / 100).toString()
+    const nextSnapshot = sessionSnapshot(next, feeStr)
+    // If the incoming row hydrates to exactly what we've already baselined
+    // (e.g. the refetch triggered by our own autosave/save/sign completing),
+    // there's nothing new here — skip the writes below. This is what stops
+    // keystrokes typed between an autosave's dispatch and its post-save
+    // refetch from being clobbered by this effect re-running setForm with
+    // the (now-stale) snapshot that was just saved. `isSigned` is derived
+    // straight from sessionQuery.data (see below), not from these state
+    // writes, so it keeps tracking the server row even when we skip.
+    if (nextSnapshot === baseline) return
     setForm(next)
     setFeeDollarStr(feeStr)
-    setBaseline(sessionSnapshot(next, feeStr))
-  }, [sessionQuery.data])
+    setBaseline(nextSnapshot)
+  }, [sessionQuery.data, baseline])
 
   const session: Session | undefined = sessionQuery.data ?? undefined
   const isSigned = !!session?.signed_at
@@ -392,6 +402,11 @@ export default function SessionEditor() {
       const snap = autosaveSnapshotRef.current
       if (snap.isSigned || snap.isNew || snap.signing || snap.savePending || snap.signPending) return
       if (!snap.dirty || snap.feeCents === null) return
+      // Never save out from under an open modal (e.g. the "Discard unsaved
+      // changes?" blocker, or the sign confirmation) — the user may be about
+      // to discard, and a silent autosave here would persist the draft they
+      // think they're throwing away. Same idiom as TopBar's Cmd+K guard.
+      if (document.querySelector('[role="dialog"]')) return
       snap.doSave(false)
     }, 3000)
   }
@@ -417,6 +432,9 @@ export default function SessionEditor() {
       const snap = autosaveSnapshotRef.current
       if (snap.isSigned || snap.signing || snap.savePending || snap.signPending) return
       if (!snap.dirty || snap.feeCents === null) return
+      // Same modal guard as autosave: e.g. Cmd+S while the sign modal is open
+      // on a brand-new session must not save-and-redirect out from under it.
+      if (document.querySelector('[role="dialog"]')) return
       snap.doSave(false)
     }
     window.addEventListener('keydown', handleKeyDown)
