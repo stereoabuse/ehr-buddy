@@ -1,24 +1,29 @@
-import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
 import { Icon } from '../components/Icon'
+import { showInFinderAction, useToast } from '../components/Toast'
 
 export default function Settings() {
-  const [backupStatus, setBackupStatus] = useState<string | null>(null)
-  const [archiveStatus, setArchiveStatus] = useState<string | null>(null)
+  const toast = useToast()
 
   const backup = useMutation({
     mutationFn: () => window.api.backup.run(),
-    onSuccess: (r) => setBackupStatus(r ? `Backed up to ${r.path}` : 'Cancelled'),
-    onError: (e) => setBackupStatus(`Error: ${String(e)}`)
+    onSuccess: (r) => {
+      // A null result means the user cancelled the save dialog — not an error.
+      if (r) toast.showSuccess(`Backed up to ${r.path}`, showInFinderAction(r.path))
+    },
+    onError: (e) => toast.showError(`Backup failed: ${String(e)}`)
   })
 
   const archive = useMutation({
     mutationFn: () => window.api.backup.fullArchive(),
-    onSuccess: (r) => setArchiveStatus(r ? `Archive saved to ${r.path}` : 'Cancelled'),
-    onError: (e) => setArchiveStatus(`Error: ${String(e)}`)
+    onSuccess: (r) => {
+      // A null result means the user cancelled the save dialog — not an error.
+      if (r) toast.showSuccess(`Archive saved to ${r.path}`, showInFinderAction(r.path))
+    },
+    onError: (e) => toast.showError(`Archive export failed: ${String(e)}`)
   })
 
   const { data: appVersion, isError: versionError } = useQuery({
@@ -29,9 +34,6 @@ export default function Settings() {
     queryKey: ['app-data-dir'],
     queryFn: () => window.api.app.dataDir()
   })
-
-  const isError = backupStatus?.startsWith('Error') ?? false
-  const isArchiveError = archiveStatus?.startsWith('Error') ?? false
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -59,15 +61,10 @@ export default function Settings() {
                 </span>
                 ; use the full archive below to capture both.
               </p>
-              {backupStatus && (
-                <p className={`mt-2 text-sm ${isError ? 'text-danger' : 'text-success'}`}>
-                  {backupStatus}
-                </p>
-              )}
             </div>
             <Btn
               icon="download"
-              onClick={() => { setBackupStatus(null); backup.mutate() }}
+              onClick={() => backup.mutate()}
               disabled={backup.isPending}
             >
               {backup.isPending ? 'Backing up…' : 'Back up now'}
@@ -84,15 +81,10 @@ export default function Settings() {
               <p className="mt-1 text-sm text-muted">
                 The archive contains PHI and is not encrypted. Store it only on encrypted storage.
               </p>
-              {archiveStatus && (
-                <p className={`mt-2 text-sm ${isArchiveError ? 'text-danger' : 'text-success'}`}>
-                  {archiveStatus}
-                </p>
-              )}
             </div>
             <Btn
               icon="download"
-              onClick={() => { setArchiveStatus(null); archive.mutate() }}
+              onClick={() => archive.mutate()}
               disabled={archive.isPending}
             >
               {archive.isPending ? 'Exporting...' : 'Export full archive'}

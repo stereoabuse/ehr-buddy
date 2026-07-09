@@ -5,27 +5,33 @@ import { practiceDateString, practiceYearStartString } from '@shared/date'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
 import { Field } from '../components/Field'
+import { showInFinderAction, useToast } from '../components/Toast'
 
 export default function Reports() {
+  const toast = useToast()
   const [fromDate, setFromDate] = useState(practiceYearStartString)
   const [toDate, setToDate] = useState(practiceDateString)
   const [includeArchived, setIncludeArchived] = useState(false)
-  const [status, setStatus] = useState<string | null>(null)
 
   const pdfMut = useMutation({
     mutationFn: (args: ReportArgs) => window.api.reports.incomePdf(args),
-    onSuccess: (r) => setStatus(r ? `Income report saved to ${r.path}` : 'Cancelled'),
-    onError: (e) => setStatus(`Error: ${String(e)}`)
+    onSuccess: (r) => {
+      // A null result means the user cancelled the save dialog — not an error.
+      if (r) toast.showSuccess(`Income report saved to ${r.path}`, showInFinderAction(r.path))
+    },
+    onError: (e) => toast.showError(`Income report failed: ${String(e)}`)
   })
 
   const csvMut = useMutation({
     mutationFn: (args: ReportArgs) => window.api.reports.csv(args),
-    onSuccess: (r) => setStatus(r ? `CSV saved to ${r.path}` : 'Cancelled'),
-    onError: (e) => setStatus(`Error: ${String(e)}`)
+    onSuccess: (r) => {
+      // A null result means the user cancelled the save dialog — not an error.
+      if (r) toast.showSuccess(`CSV saved to ${r.path}`, showInFinderAction(r.path))
+    },
+    onError: (e) => toast.showError(`CSV export failed: ${String(e)}`)
   })
 
   const busy = pdfMut.isPending || csvMut.isPending
-  const isError = status?.startsWith('Error') ?? false
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -81,7 +87,7 @@ export default function Reports() {
           <div className="mt-4">
             <Btn
               icon="pdf"
-              onClick={() => { setStatus(null); pdfMut.mutate({ fromDate, toDate, includeArchived }) }}
+              onClick={() => pdfMut.mutate({ fromDate, toDate, includeArchived })}
               disabled={busy}
             >
               {pdfMut.isPending ? 'Generating…' : 'Generate PDF'}
@@ -100,7 +106,7 @@ export default function Reports() {
             <Btn
               icon="download"
               variant="secondary"
-              onClick={() => { setStatus(null); csvMut.mutate({ fromDate, toDate, includeArchived }) }}
+              onClick={() => csvMut.mutate({ fromDate, toDate, includeArchived })}
               disabled={busy}
             >
               {csvMut.isPending ? 'Exporting…' : 'Export CSV'}
@@ -108,12 +114,6 @@ export default function Reports() {
           </div>
         </Card>
       </div>
-
-      {status && (
-        <p className={`mt-4 text-sm ${isError ? 'text-danger' : 'text-success'}`}>
-          {status}
-        </p>
-      )}
     </div>
   )
 }

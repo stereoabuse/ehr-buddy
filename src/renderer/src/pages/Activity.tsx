@@ -5,16 +5,17 @@ import { practiceDateString, practiceYearStartString } from '@shared/date'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
 import { Field } from '../components/Field'
+import { showInFinderAction, useToast } from '../components/Toast'
 
 const ENTITY_TYPES: (AuditEntity | '')[] = [
   '', 'app', 'client', 'session', 'clinician', 'superbill', 'report', 'backup', 'document'
 ]
 
 export default function Activity() {
+  const toast = useToast()
   const [fromDate, setFromDate] = useState(practiceYearStartString)
   const [toDate, setToDate] = useState(practiceDateString)
   const [entity, setEntity] = useState<AuditEntity | ''>('')
-  const [status, setStatus] = useState<string | null>(null)
 
   const filter = {
     fromDate,
@@ -29,11 +30,12 @@ export default function Activity() {
 
   const csvMut = useMutation({
     mutationFn: () => window.api.audit.csv(filter),
-    onSuccess: (r) => setStatus(r ? `CSV saved to ${r.path}` : 'Cancelled'),
-    onError: (e) => setStatus(`Error: ${String(e)}`)
+    onSuccess: (r) => {
+      // A null result means the user cancelled the save dialog — not an error.
+      if (r) toast.showSuccess(`CSV saved to ${r.path}`, showInFinderAction(r.path))
+    },
+    onError: (e) => toast.showError(`CSV export failed: ${String(e)}`)
   })
-
-  const isError = status?.startsWith('Error') ?? false
 
   return (
     <div className="mx-auto max-w-[1100px]">
@@ -82,7 +84,7 @@ export default function Activity() {
         <Btn
           icon="download"
           variant="secondary"
-          onClick={() => { setStatus(null); csvMut.mutate() }}
+          onClick={() => csvMut.mutate()}
           disabled={csvMut.isPending}
         >
           {csvMut.isPending ? 'Exporting…' : 'Export CSV'}
@@ -93,8 +95,6 @@ export default function Activity() {
             : 'Loading…'}
         </span>
       </div>
-
-      {status && <p className={`mt-3 text-sm ${isError ? 'text-danger' : 'text-success'}`}>{status}</p>}
 
       <div className="mt-4">
         <Card padding={0}>

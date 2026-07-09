@@ -12,6 +12,7 @@ import { Icon } from '../components/Icon'
 import { Icd10Picker, parseIcd10String, serializeIcd10List } from '../components/Icd10Picker'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { showInFinderAction, useToast } from '../components/Toast'
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
 import { initialsOf } from '../lib/format'
@@ -73,6 +74,7 @@ export default function SessionEditor() {
   const isNew = !sessionId
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const toast = useToast()
 
   const clinicianQuery = useQuery({ queryKey: ['clinician'], queryFn: () => window.api.clinician.get() })
   const clientQuery = useQuery({
@@ -115,7 +117,6 @@ export default function SessionEditor() {
   const [showSignModal, setShowSignModal] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
   const [amendError, setAmendError] = useState<string | null>(null)
-  const [exportError, setExportError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [signing, setSigning] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -280,8 +281,13 @@ export default function SessionEditor() {
       if (!sessionId) throw new Error('Save and sign the note before exporting.')
       return window.api.notes.exportPdf({ sessionId })
     },
-    onSuccess: () => setExportError(null),
-    onError: (err) => setExportError(String(err))
+    onSuccess: (result) => {
+      // A null result means the user cancelled the save dialog — not an error.
+      if (result) {
+        toast.showSuccess(`Note exported to ${result.path}`, showInFinderAction(result.path))
+      }
+    },
+    onError: (err) => toast.showError(`Export failed: ${String(err)}`)
   })
 
   const del = useMutation({
@@ -655,7 +661,6 @@ export default function SessionEditor() {
 
             {save.error && <p className="text-sm text-danger">Save failed: {String(save.error)}</p>}
             {signError && <p className="text-sm text-danger">Sign failed: {signError}</p>}
-            {exportError && <p className="text-sm text-danger">Export failed: {exportError}</p>}
 
             {!isNew && !isSigned && (
               <div className="pt-2">

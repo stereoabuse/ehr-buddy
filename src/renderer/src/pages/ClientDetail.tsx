@@ -16,6 +16,7 @@ import { Disclosure } from '../components/Disclosure'
 import { PaidToggle } from '../components/PaidToggle'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { showInFinderAction, useToast } from '../components/Toast'
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
 import { fmtMoney, initialsOf } from '../lib/format'
@@ -432,6 +433,7 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
 
 function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Session[] }) {
   const qc = useQueryClient()
+  const toast = useToast()
   const unpaid = sessions
     .filter((s) => s.paid === 0)
     .sort((a, b) => a.session_date.localeCompare(b.session_date))
@@ -463,7 +465,6 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
   // Superbill date range — default to current month
   const [fromDate, setFromDate] = useState(practiceMonthStartString)
   const [toDate, setToDate] = useState(practiceDateString)
-  const [sbStatus, setSbStatus] = useState<string | null>(null)
 
   const inRange = useMemo(
     () => sessions.filter((s) => s.session_date >= fromDate && s.session_date <= toDate),
@@ -474,8 +475,13 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
 
   const gen = useMutation({
     mutationFn: (args: SuperbillArgs) => window.api.superbill.generate(args),
-    onSuccess: (result) => setSbStatus(result ? `Saved to ${result.path}` : 'Cancelled'),
-    onError: (err) => setSbStatus(`Error: ${String(err)}`)
+    onSuccess: (result) => {
+      // A null result means the user cancelled the save dialog — not an error.
+      if (result) {
+        toast.showSuccess(`Superbill saved to ${result.path}`, showInFinderAction(result.path))
+      }
+    },
+    onError: (err) => toast.showError(`Superbill failed: ${String(err)}`)
   })
 
   return (
@@ -526,21 +532,11 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
           Paid <span className="font-semibold text-body">{fmtMoney(sbPaid)}</span> ·{' '}
           Balance <span className="font-semibold text-body">{fmtMoney(sbTotal - sbPaid)}</span>
         </div>
-        {sbStatus && (
-          <div
-            className={`px-[18px] pb-3 text-sm ${sbStatus.startsWith('Error') ? 'text-danger' : 'text-success'}`}
-          >
-            {sbStatus}
-          </div>
-        )}
         <div className="px-[18px] pb-4">
           <Btn
             icon="pdf"
             disabled={gen.isPending || inRange.length === 0}
-            onClick={() => {
-              setSbStatus(null)
-              gen.mutate({ clientId, fromDate, toDate })
-            }}
+            onClick={() => gen.mutate({ clientId, fromDate, toDate })}
           >
             {gen.isPending ? 'Generating…' : 'Generate Superbill'}
           </Btn>
