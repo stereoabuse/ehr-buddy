@@ -31,6 +31,7 @@ export default function Dashboard() {
   if (todaySessions.isError) queryErrors.push({ label: "today's sessions", error: todaySessions.error })
   if (unpaidSessions.isError) queryErrors.push({ label: 'unpaid sessions', error: unpaidSessions.error })
   if (roster.isError) queryErrors.push({ label: 'client roster', error: roster.error })
+  if (backupLastRun.isError) queryErrors.push({ label: 'backup status', error: backupLastRun.error })
 
   const scheduleUnavailable = todaySessions.isPending || todaySessions.isError
   const todoUnavailable = todaySessions.isPending || todaySessions.isError || unpaidSessions.isPending || unpaidSessions.isError
