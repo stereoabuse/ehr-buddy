@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ClinicianInput } from '@shared/types'
 import { CPT_CODES } from '@shared/cpt-codes'
@@ -7,6 +7,7 @@ import { Card } from '../components/Card'
 import { Field } from '../components/Field'
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
+import { parseFeeDollars } from '../lib/fee'
 
 const SIGNATURE_MAX_BYTES = 1_000_000
 const SIGNATURE_ACCEPT = 'image/png,image/jpeg'
@@ -46,6 +47,15 @@ export default function ClinicianProfile() {
   )
   const isDirty = JSON.stringify({ form, feeStrings }) !== baseline
   const { blocker } = useUnsavedChangesGuard(isDirty)
+
+  const feeErrors = useMemo(() => {
+    const errs: Record<string, string> = {}
+    for (const [cpt, str] of Object.entries(feeStrings)) {
+      if (parseFeeDollars(str) === null) errs[cpt] = 'Enter a valid non-negative amount'
+    }
+    return errs
+  }, [feeStrings])
+  const hasFeeErrors = Object.keys(feeErrors).length > 0
 
   useEffect(() => {
     if (clinicianQuery.data) {
@@ -132,10 +142,11 @@ export default function ClinicianProfile() {
       return
     }
     setErrors({})
+    if (hasFeeErrors) return
     const default_fees: Record<string, number> = {}
     for (const [cpt, str] of Object.entries(feeStrings)) {
-      const d = parseFloat(str)
-      if (!isNaN(d) && d > 0) default_fees[cpt] = Math.round(d * 100)
+      const cents = parseFeeDollars(str)
+      if (cents !== null && cents > 0) default_fees[cpt] = cents
     }
     const nextForm = { ...form, default_fees }
     save.mutate(nextForm, {
@@ -258,33 +269,38 @@ export default function ClinicianProfile() {
             {CPT_CODES.map((cpt, i, arr) => (
               <div
                 key={cpt.code}
-                className="flex items-center gap-4 px-[18px] py-3"
+                className="flex flex-col gap-1 px-[18px] py-3"
                 style={{ borderBottom: i < arr.length - 1 ? '0.5px solid var(--color-divider)' : 'none' }}
               >
-                <div className="flex-1">
-                  <div
-                    className="text-sm font-semibold text-ink"
-                    style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-                  >
-                    {cpt.code}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <div
+                      className="text-sm font-semibold text-ink"
+                      style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                    >
+                      {cpt.code}
+                    </div>
+                    <div className="text-sm text-muted">{cpt.description}</div>
                   </div>
-                  <div className="text-sm text-muted">{cpt.description}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base text-muted">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={feeStrings[cpt.code] ?? ''}
+                      onChange={(e) =>
+                        setFeeStrings((prev) => ({ ...prev, [cpt.code]: e.target.value }))
+                      }
+                      className="h-9 w-28 rounded-md px-3 text-right text-base text-ink outline-none"
+                      style={{ border: '0.5px solid var(--color-hairline)', background: 'var(--color-surface)' }}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-base text-muted">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={feeStrings[cpt.code] ?? ''}
-                    onChange={(e) =>
-                      setFeeStrings((prev) => ({ ...prev, [cpt.code]: e.target.value }))
-                    }
-                    className="h-9 w-28 rounded-md px-3 text-right text-base text-ink outline-none"
-                    style={{ border: '0.5px solid var(--color-hairline)', background: 'var(--color-surface)' }}
-                  />
-                </div>
+                {feeErrors[cpt.code] && (
+                  <div className="text-right text-sm text-danger">{feeErrors[cpt.code]}</div>
+                )}
               </div>
             ))}
           </div>
@@ -298,7 +314,11 @@ export default function ClinicianProfile() {
         className="mt-6 flex items-center gap-3 pt-4"
         style={{ borderTop: '0.5px solid var(--color-hairline)' }}
       >
-        <Btn type="submit" disabled={save.isPending}>
+        <Btn
+          type="submit"
+          disabled={save.isPending || hasFeeErrors}
+          title={hasFeeErrors ? 'Fix the highlighted fee before saving' : undefined}
+        >
           {save.isPending ? 'Saving…' : 'Save'}
         </Btn>
       </div>

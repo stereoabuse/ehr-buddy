@@ -16,6 +16,7 @@ import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
 import { initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import { invalidateSessionDerivedQueries } from '../lib/query'
+import { parseFeeDollars } from '../lib/fee'
 import {
   EMPTY_STRUCTURED_NOTE,
   INTERVENTION_OPTIONS,
@@ -103,6 +104,8 @@ export default function SessionEditor() {
     sessionSnapshot(makeInitialForm(clientId), '0')
   )
   const [feeDollarStr, setFeeDollarStr] = useState('0')
+  const feeCents = parseFeeDollars(feeDollarStr)
+  const feeError = feeCents === null ? 'Enter a valid non-negative amount' : undefined
   const [amendmentDraft, setAmendmentDraft] = useState('')
   const isDirty = sessionSnapshot(form, feeDollarStr) !== baseline || amendmentDraft.trim() !== ''
   const { blocker, bypass } = useUnsavedChangesGuard(isDirty)
@@ -166,14 +169,13 @@ export default function SessionEditor() {
 
   const billingDirty = useMemo(() => {
     if (!isSigned || !session) return false
-    const d = parseFloat(feeDollarStr)
-    const feeCents = isNaN(d) ? 0 : Math.round(d * 100)
+    if (feeCents === null) return true
     return feeCents !== session.fee_cents || form.paid !== session.paid
-  }, [isSigned, session, feeDollarStr, form.paid])
+  }, [isSigned, session, feeCents, form.paid])
 
   function doSaveBilling(): void {
-    const d = parseFloat(feeDollarStr)
-    const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
+    if (feeCents === null) return
+    const fee_cents = feeCents
     save.mutate({ ...form, fee_cents }, {
       onSuccess: () => {
         setForm((f) => ({ ...f, fee_cents }))
@@ -215,8 +217,7 @@ export default function SessionEditor() {
 
   function handleCptChange(code: string): void {
     const defaultFee = defaultFees[code]
-    const typed = parseFloat(feeDollarStr)
-    const feeIsBlank = Number.isNaN(typed) || typed === 0
+    const feeIsBlank = feeCents === null || feeCents === 0
     if (feeIsBlank && defaultFee != null) {
       setFeeDollarStr((defaultFee / 100).toString())
       setForm((f) => ({ ...f, cpt_code: code, fee_cents: defaultFee }))
@@ -286,14 +287,14 @@ export default function SessionEditor() {
     if (!form.end_time) errs.end_time = 'Required'
     if (!form.cpt_code) errs.cpt_code = 'Required'
     if (duration == null && form.start_time && form.end_time) errs.end_time = 'End must be after start'
+    if (feeCents === null) errs.fee = 'Enter a valid non-negative amount'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
 
   function doSave(andClose: boolean): void {
-    if (!validate()) return
-    const d = parseFloat(feeDollarStr)
-    const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
+    if (!validate() || feeCents === null) return
+    const fee_cents = feeCents
     save.mutate({ ...form, fee_cents }, {
       onSuccess: (saved) => {
         setForm((f) => ({ ...f, fee_cents }))
@@ -313,12 +314,11 @@ export default function SessionEditor() {
     if (signing) return
     setSigning(true)
     try {
-      if (!validate()) {
+      if (!validate() || feeCents === null) {
         setSignError('Fix the highlighted fields before signing.')
         return
       }
-      const d = parseFloat(feeDollarStr)
-      const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
+      const fee_cents = feeCents
       if (isNew) {
         const saved = await save.mutateAsync({ ...form, fee_cents })
         setForm((f) => ({ ...f, id: saved.id }))
@@ -666,10 +666,12 @@ export default function SessionEditor() {
                 <SmallInput
                   label="Fee"
                   type="number"
+                  min="0"
                   prefix="$"
                   value={feeDollarStr}
                   onChange={(v) => setFeeDollarStr(v)}
                   disabled={false}
+                  error={feeError}
                 />
                 <label className="flex items-center gap-2 text-base text-body cursor-pointer">
                   <input
@@ -1200,6 +1202,7 @@ function SmallInput({
   onChange,
   disabled,
   type = 'text',
+  min,
   prefix,
   placeholder,
   error
@@ -1209,6 +1212,7 @@ function SmallInput({
   onChange: (v: string) => void
   disabled?: boolean
   type?: string
+  min?: string
   prefix?: string
   placeholder?: string
   error?: string
@@ -1223,6 +1227,7 @@ function SmallInput({
         {prefix && <span className="mr-1 text-base text-muted">{prefix}</span>}
         <input
           type={type}
+          min={min}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
