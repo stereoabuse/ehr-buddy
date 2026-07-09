@@ -10,6 +10,7 @@ import Activity from './pages/Activity'
 import Settings from './pages/Settings'
 import { Sidebar } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
+import { ToastProvider } from './components/Toast'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,7 +54,9 @@ const router = createHashRouter([
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </QueryClientProvider>
   )
 }

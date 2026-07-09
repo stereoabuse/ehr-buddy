@@ -25,6 +25,8 @@ export type IconName =
   | 'paperclip'
   | 'pdf'
   | 'edit'
+  | 'alert'
+  | 'x'
 
 interface IconProps {
   name: IconName
@@ -200,6 +202,20 @@ export function Icon({ name, size = 18, className, strokeWidth = 1.75 }: IconPro
         <svg {...common}>
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+      )
+    case 'alert':
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 8v5" />
+          <path d="M12 16h.01" />
+        </svg>
+      )
+    case 'x':
+      return (
+        <svg {...common}>
+          <path d="M18 6 6 18M6 6l12 12" />
         </svg>
       )
   }
