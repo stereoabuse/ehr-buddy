@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { Client, ClientDocument, ClientInput, DocType, Session } from '@shared/types'
 import type { SuperbillArgs } from '@shared/api-types'
 import { CPT_CODES } from '@shared/cpt-codes'
@@ -35,6 +35,12 @@ const EMPTY: ClientInput = {
 }
 
 type TabId = 'overview' | 'sessions' | 'billing' | 'documents'
+
+const TAB_IDS: readonly TabId[] = ['overview', 'sessions', 'billing', 'documents']
+
+function isTabId(value: string | null): value is TabId {
+  return value != null && (TAB_IDS as readonly string[]).includes(value)
+}
 
 const DOC_TYPE_LABELS: Record<DocType, string> = {
   consent: 'Consent',
@@ -75,8 +81,21 @@ function ClientChartView({ clientId }: { clientId: string }) {
   const clientQuery = useQuery({ queryKey: ['clients', clientId], queryFn: () => window.api.clients.get(clientId) })
   const sessionsQuery = useQuery({ queryKey: ['sessions', 'byClient', clientId], queryFn: () => window.api.sessions.listByClient(clientId) })
 
-  const [tab, setTab] = useState<TabId>('overview')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const tab: TabId = isTabId(tabParam) ? tabParam : 'overview'
   const [editing, setEditing] = useState(false)
+
+  function setTab(t: TabId) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('tab', t)
+        return next
+      },
+      { replace: true }
+    )
+  }
 
   const docsQuery = useQuery({
     queryKey: ['documents', clientId],
