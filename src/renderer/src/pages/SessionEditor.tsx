@@ -113,6 +113,7 @@ export default function SessionEditor() {
   const [amendError, setAmendError] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
+  const [signing, setSigning] = useState(false)
 
   // Hydrate from server. Auto-converts unsigned legacy DAP/FREE → STRUCTURED
   // (legacy body becomes Overall Notes). Signed legacy notes stay as-is and
@@ -297,6 +298,8 @@ export default function SessionEditor() {
       onSuccess: (saved) => {
         setForm((f) => ({ ...f, fee_cents }))
         setBaseline(sessionSnapshot({ ...form, fee_cents, id: saved.id }, feeDollarStr))
+        // After a failed sign on a new session the route still says "new", so
+        // the next successful Save Draft navigates to the created session.
         if (isNew) {
           bypass(() => navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true }))
         } else if (andClose) {
@@ -307,13 +310,15 @@ export default function SessionEditor() {
   }
 
   async function doSign(): Promise<void> {
-    if (!validate()) {
-      setSignError('Fix the highlighted fields before signing.')
-      return
-    }
-    const d = parseFloat(feeDollarStr)
-    const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
+    if (signing) return
+    setSigning(true)
     try {
+      if (!validate()) {
+        setSignError('Fix the highlighted fields before signing.')
+        return
+      }
+      const d = parseFloat(feeDollarStr)
+      const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
       if (isNew) {
         const saved = await save.mutateAsync({ ...form, fee_cents })
         setForm((f) => ({ ...f, id: saved.id }))
@@ -337,6 +342,8 @@ export default function SessionEditor() {
       }
     } catch (err) {
       setSignError(String(err))
+    } finally {
+      setSigning(false)
     }
   }
 
@@ -775,8 +782,8 @@ export default function SessionEditor() {
               <Btn variant="secondary" onClick={() => setShowSignModal(false)}>
                 Cancel
               </Btn>
-              <Btn icon="lock" onClick={doSign} disabled={!clinicianQuery.data || sign.isPending || save.isPending}>
-                {sign.isPending || save.isPending ? 'Signing…' : 'Sign & Lock'}
+              <Btn icon="lock" onClick={doSign} disabled={!clinicianQuery.data || sign.isPending || save.isPending || signing}>
+                {sign.isPending || save.isPending || signing ? 'Signing…' : 'Sign & Lock'}
               </Btn>
             </div>
         </Modal>
