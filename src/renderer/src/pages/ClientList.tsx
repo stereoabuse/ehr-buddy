@@ -171,8 +171,6 @@ function ClientRow({ row, isLast, onOpen }: { row: RosterRow; isLast: boolean; o
         }
       }}
       tabIndex={0}
-      role="link"
-      aria-label={`Open client ${row.last_name}, ${row.first_name}`}
       className="cursor-pointer bg-surface hover:bg-canvas-2 focus-visible:bg-canvas-2"
       style={{
         borderBottom: isLast ? 'none' : '0.5px solid var(--color-divider)',

@@ -369,8 +369,6 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
                       }
                     }}
                     tabIndex={0}
-                    role="link"
-                    aria-label={`Open session ${s.session_date}`}
                     className="cursor-pointer bg-surface hover:bg-canvas-2 focus-visible:bg-canvas-2"
                     style={{
                       borderBottom: i < sessions.length - 1 ? '0.5px solid var(--color-divider)' : 'none',
