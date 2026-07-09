@@ -316,8 +316,8 @@ export default function SessionEditor() {
     try {
       if (isNew) {
         const saved = await save.mutateAsync({ ...form, fee_cents })
+        setForm((f) => ({ ...f, id: saved.id }))
         setBaseline(sessionSnapshot({ ...form, fee_cents, id: saved.id }, feeDollarStr))
-        bypass(() => navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true }))
         await window.api.sessions.sign({
           id: saved.id,
           body: form.note_body ?? '',
@@ -326,6 +326,10 @@ export default function SessionEditor() {
         invalidateSessionDerivedQueries(qc)
         setSignError(null)
         setShowSignModal(false)
+        // Navigate only after a successful sign; the draft was already saved
+        // above, so a sign failure leaves the user here with the error
+        // visible and no data lost.
+        bypass(() => navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true }))
       } else {
         await save.mutateAsync({ ...form, fee_cents })
         setBaseline(sessionSnapshot({ ...form, fee_cents }, feeDollarStr))
