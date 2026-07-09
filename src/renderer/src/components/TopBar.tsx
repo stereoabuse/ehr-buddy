@@ -108,6 +108,7 @@ function GlobalSearch() {
   useEffect(() => {
     function onGlobalKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        if (document.querySelector('[role="dialog"]')) return
         e.preventDefault()
         inputRef.current?.focus()
         setOpen(true)
@@ -163,6 +164,9 @@ function GlobalSearch() {
           role="combobox"
           aria-expanded={showList}
           aria-controls="global-search-listbox"
+          aria-activedescendant={
+            showList && matches.length > 0 ? `global-search-option-${highlight}` : undefined
+          }
           aria-label="Search clients"
           className="flex-1 border-0 bg-transparent text-base text-ink outline-none placeholder:text-faint"
         />
@@ -186,7 +190,7 @@ function GlobalSearch() {
             </li>
           )}
           {matches.map((r, i) => (
-            <li key={r.id} role="option" aria-selected={i === highlight}>
+            <li key={r.id} id={`global-search-option-${i}`} role="option" aria-selected={i === highlight}>
               <button
                 type="button"
                 onMouseDown={(e) => {
