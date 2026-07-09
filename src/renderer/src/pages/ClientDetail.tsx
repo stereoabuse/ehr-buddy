@@ -326,11 +326,22 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
   const qc = useQueryClient()
 
   const [paidError, setPaidError] = useState<string | null>(null)
+  const [pendingPaidIds, setPendingPaidIds] = useState<Set<string>>(new Set())
 
   const togglePaid = useMutation({
     mutationFn: ({ id, paid }: { id: string; paid: 0 | 1 }) => window.api.sessions.setPaid(id, paid),
+    onMutate: ({ id }) => {
+      setPendingPaidIds((prev) => new Set(prev).add(id))
+    },
     onSuccess: () => invalidateSessionDerivedQueries(qc),
-    onError: (err) => setPaidError(`Update failed: ${String(err)}`)
+    onError: (err) => setPaidError(`Update failed: ${String(err)}`),
+    onSettled: (_data, _error, variables) => {
+      setPendingPaidIds((prev) => {
+        const next = new Set(prev)
+        next.delete(variables.id)
+        return next
+      })
+    }
   })
 
   const totalFee = sessions.reduce((s, x) => s + x.fee_cents, 0)
@@ -416,7 +427,7 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
                       <PaidToggle
                         paid={s.paid}
                         onToggle={() => { setPaidError(null); togglePaid.mutate({ id: s.id, paid: s.paid === 1 ? 0 : 1 }) }}
-                        pending={togglePaid.isPending && togglePaid.variables?.id === s.id}
+                        pending={pendingPaidIds.has(s.id)}
                       />
                     </td>
                     <td className="px-3 py-2.5">
