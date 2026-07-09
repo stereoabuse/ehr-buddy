@@ -15,6 +15,7 @@ import { Tabs } from '../components/Tabs'
 import { Disclosure } from '../components/Disclosure'
 import { PaidToggle } from '../components/PaidToggle'
 import { Modal } from '../components/Modal'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
 import { fmtMoney, initialsOf } from '../lib/format'
@@ -436,6 +437,7 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
     .sort((a, b) => a.session_date.localeCompare(b.session_date))
   const balance = unpaid.reduce((sum, s) => sum + s.fee_cents, 0)
   const [billingError, setBillingError] = useState<string | null>(null)
+  const [confirmMarkAllPaid, setConfirmMarkAllPaid] = useState(false)
 
   const setPaidOne = useMutation({
     mutationFn: (id: string) => window.api.sessions.setPaid(id, 1),
@@ -455,9 +457,7 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
 
   function handleMarkAllPaid() {
     if (unpaid.length === 0) return
-    if (!confirm(`Mark all ${unpaid.length} unpaid session${unpaid.length === 1 ? '' : 's'} as paid?`)) return
-    setBillingError(null)
-    markAllPaid.mutate()
+    setConfirmMarkAllPaid(true)
   }
 
   // Superbill date range — default to current month
@@ -615,6 +615,20 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
           </table>
         </Card>
       )}
+
+      {confirmMarkAllPaid && (
+        <ConfirmDialog
+          title="Mark all paid?"
+          message={`Mark all ${unpaid.length} unpaid session${unpaid.length === 1 ? '' : 's'} as paid?`}
+          confirmLabel="Mark all paid"
+          onConfirm={() => {
+            setConfirmMarkAllPaid(false)
+            setBillingError(null)
+            markAllPaid.mutate()
+          }}
+          onCancel={() => setConfirmMarkAllPaid(false)}
+        />
+      )}
     </div>
   )
 }
@@ -628,6 +642,7 @@ function DocumentsPanel({ clientId, docs }: { clientId: string; docs: ClientDocu
   const [label, setLabel] = useState('')
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState<string | null>(null)
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<ClientDocument | null>(null)
 
   function resetForm() {
     setDocType('consent')
@@ -674,9 +689,7 @@ function DocumentsPanel({ clientId, docs }: { clientId: string; docs: ClientDocu
   })
 
   function handleDelete(doc: ClientDocument) {
-    if (confirm(`Delete "${doc.label}"? The file will be removed from disk. This cannot be undone.`)) {
-      del.mutate(doc.id)
-    }
+    setConfirmDeleteDoc(doc)
   }
 
   function handleUpload() {
@@ -811,6 +824,20 @@ function DocumentsPanel({ clientId, docs }: { clientId: string; docs: ClientDocu
         Documents are stored locally in your app data folder. The one-click backup includes the database only —
         back up the documents folder separately.
       </p>
+
+      {confirmDeleteDoc && (
+        <ConfirmDialog
+          title="Delete document?"
+          message={`Delete "${confirmDeleteDoc.label}"? The file will be removed from disk. This cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => {
+            del.mutate(confirmDeleteDoc.id)
+            setConfirmDeleteDoc(null)
+          }}
+          onCancel={() => setConfirmDeleteDoc(null)}
+        />
+      )}
     </div>
   )
 }
@@ -845,6 +872,7 @@ function InfoForm({
   const { blocker, bypass } = useUnsavedChangesGuard(isDirty)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false)
+  const [confirmArchive, setConfirmArchive] = useState(false)
   const loadedClientId = useRef<string | undefined>(undefined)
 
   useEffect(() => {
@@ -931,8 +959,7 @@ function InfoForm({
 
   function handleDelete() {
     if (!clientId) return
-    if (confirm(`Archive ${persistedFullName()}? They will be hidden from the client list.`))
-      del.mutate(clientId)
+    setConfirmArchive(true)
   }
 
   function handleReactivate() {
@@ -1036,6 +1063,20 @@ function InfoForm({
           onConfirm={(typed) =>
             permanentDel.mutate({ id: clientId, confirmation: typed })
           }
+        />
+      )}
+
+      {confirmArchive && clientId && (
+        <ConfirmDialog
+          title="Archive client?"
+          message={`Archive ${persistedFullName()}? They will be hidden from the client list.`}
+          confirmLabel="Archive"
+          danger
+          onConfirm={() => {
+            setConfirmArchive(false)
+            del.mutate(clientId)
+          }}
+          onCancel={() => setConfirmArchive(false)}
         />
       )}
 

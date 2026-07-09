@@ -11,6 +11,7 @@ import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Icd10Picker, parseIcd10String, serializeIcd10List } from '../components/Icd10Picker'
 import { Modal } from '../components/Modal'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
 import { initialsOf } from '../lib/format'
@@ -117,6 +118,13 @@ export default function SessionEditor() {
   const [exportError, setExportError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [signing, setSigning] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string
+    message: string
+    confirmLabel: string
+    danger?: boolean
+    onConfirm: () => void
+  } | null>(null)
 
   // Hydrate from server. Auto-converts unsigned legacy DAP/FREE → STRUCTURED
   // (legacy body becomes Overall Notes). Signed legacy notes stay as-is and
@@ -351,6 +359,7 @@ export default function SessionEditor() {
     if (!lastSession) return
     if (lastSession.note_format === 'STRUCTURED') {
       const last = parseStructuredNote(lastSession.note_body)
+      const apply = () => setForm((f) => ({ ...f, note_body: serializeStructuredNote(last) }))
       // Replace, but keep the user's draft warning if anything's been entered.
       const noteHasAnything =
         note.overall_notes ||
@@ -358,20 +367,52 @@ export default function SessionEditor() {
         note.medications ||
         note.content_discussed ||
         note.current_functioning
-      if (noteHasAnything && !confirm("Replace the current note with the previous session's structured note?")) return
-      setForm((f) => ({ ...f, note_body: serializeStructuredNote(last) }))
+      if (noteHasAnything) {
+        setConfirmDialog({
+          title: 'Replace current note?',
+          message: "Replace the current note with the previous session's structured note?",
+          confirmLabel: 'Replace',
+          onConfirm: () => {
+            apply()
+            setConfirmDialog(null)
+          }
+        })
+        return
+      }
+      apply()
     } else {
       // Legacy: drop the body into Overall Notes.
       const overall = (lastSession.note_body ?? '').trim()
       if (!overall) return
-      if (note.overall_notes && !confirm('Replace the current Overall Notes with the previous session?')) return
-      updateNote({ overall_notes: overall })
+      const apply = () => updateNote({ overall_notes: overall })
+      if (note.overall_notes) {
+        setConfirmDialog({
+          title: 'Replace current notes?',
+          message: 'Replace the current Overall Notes with the previous session?',
+          confirmLabel: 'Replace',
+          onConfirm: () => {
+            apply()
+            setConfirmDialog(null)
+          }
+        })
+        return
+      }
+      apply()
     }
   }
 
   function handleDelete(): void {
     if (!sessionId) return
-    if (confirm('Delete this session? This cannot be undone.')) del.mutate(sessionId)
+    setConfirmDialog({
+      title: 'Delete session?',
+      message: 'Delete this session? This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: () => {
+        setConfirmDialog(null)
+        del.mutate(sessionId)
+      }
+    })
   }
 
   function handleAddAmendment(): void {
@@ -789,6 +830,17 @@ export default function SessionEditor() {
               </Btn>
             </div>
         </Modal>
+      )}
+
+      {confirmDialog && (
+        <ConfirmDialog
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmLabel={confirmDialog.confirmLabel}
+          danger={confirmDialog.danger}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
       )}
 
       <UnsavedChangesDialog blocker={blocker} />
