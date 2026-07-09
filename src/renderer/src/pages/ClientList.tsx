@@ -163,8 +163,21 @@ function ClientRow({ row, isLast, onOpen }: { row: RosterRow; isLast: boolean; o
   return (
     <tr
       onClick={onOpen}
-      className="cursor-pointer bg-surface hover:bg-canvas-2"
-      style={{ borderBottom: isLast ? 'none' : '0.5px solid var(--color-divider)' }}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+      tabIndex={0}
+      role="link"
+      aria-label={`Open client ${row.last_name}, ${row.first_name}`}
+      className="cursor-pointer bg-surface hover:bg-canvas-2 focus-visible:bg-canvas-2"
+      style={{
+        borderBottom: isLast ? 'none' : '0.5px solid var(--color-divider)',
+        outlineColor: 'var(--color-primary)'
+      }}
     >
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-2.5">

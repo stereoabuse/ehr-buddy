@@ -14,6 +14,9 @@ import { Field } from '../components/Field'
 import { Tabs } from '../components/Tabs'
 import { Disclosure } from '../components/Disclosure'
 import { PaidToggle } from '../components/PaidToggle'
+import { Modal } from '../components/Modal'
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
+import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
 import { fmtMoney, initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import { noteHasContent } from '@shared/structured-note'
@@ -300,9 +303,12 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
   const navigate = useNavigate()
   const qc = useQueryClient()
 
+  const [paidError, setPaidError] = useState<string | null>(null)
+
   const togglePaid = useMutation({
     mutationFn: ({ id, paid }: { id: string; paid: 0 | 1 }) => window.api.sessions.setPaid(id, paid),
-    onSuccess: () => invalidateSessionDerivedQueries(qc)
+    onSuccess: () => invalidateSessionDerivedQueries(qc),
+    onError: (err) => setPaidError(`Update failed: ${String(err)}`)
   })
 
   const totalFee = sessions.reduce((s, x) => s + x.fee_cents, 0)
@@ -327,6 +333,8 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
             Progress Note
           </Btn>
         </div>
+
+        {paidError && <p className="px-[18px] py-2 text-sm text-danger">{paidError}</p>}
 
         {sessions.length === 0 ? (
           <div className="px-5 py-10 text-center text-base text-muted">No sessions yet.</div>
@@ -353,8 +361,21 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
                   <tr
                     key={s.id}
                     onClick={() => navigate(`/clients/${clientId}/sessions/${s.id}`)}
-                    className="cursor-pointer bg-surface hover:bg-canvas-2"
-                    style={{ borderBottom: i < sessions.length - 1 ? '0.5px solid var(--color-divider)' : 'none' }}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigate(`/clients/${clientId}/sessions/${s.id}`)
+                      }
+                    }}
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`Open session ${s.session_date}`}
+                    className="cursor-pointer bg-surface hover:bg-canvas-2 focus-visible:bg-canvas-2"
+                    style={{
+                      borderBottom: i < sessions.length - 1 ? '0.5px solid var(--color-divider)' : 'none',
+                      outlineColor: 'var(--color-primary)'
+                    }}
                   >
                     <td className="px-3 py-2.5 font-semibold text-primary" style={{ fontVariantNumeric: 'tabular-nums' }}>
                       {s.session_date}
@@ -374,7 +395,7 @@ function SessionsPanel({ clientId, sessions }: { clientId: string; sessions: Ses
                     <td className="px-3 py-2.5">
                       <PaidToggle
                         paid={s.paid}
-                        onToggle={() => togglePaid.mutate({ id: s.id, paid: s.paid === 1 ? 0 : 1 })}
+                        onToggle={() => { setPaidError(null); togglePaid.mutate({ id: s.id, paid: s.paid === 1 ? 0 : 1 }) }}
                         pending={togglePaid.isPending}
                       />
                     </td>
@@ -416,13 +437,29 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
     .filter((s) => s.paid === 0)
     .sort((a, b) => a.session_date.localeCompare(b.session_date))
   const balance = unpaid.reduce((sum, s) => sum + s.fee_cents, 0)
+  const [billingError, setBillingError] = useState<string | null>(null)
 
-  function markAllPaid() {
+  const setPaidOne = useMutation({
+    mutationFn: (id: string) => window.api.sessions.setPaid(id, 1),
+    onSuccess: () => invalidateSessionDerivedQueries(qc),
+    onError: (err) => setBillingError(`Mark paid failed: ${String(err)}`)
+  })
+
+  const markAllPaid = useMutation({
+    mutationFn: async () => {
+      const results = await Promise.allSettled(unpaid.map((s) => window.api.sessions.setPaid(s.id, 1)))
+      const failed = results.filter((r) => r.status === 'rejected').length
+      if (failed > 0) throw new Error(`${failed} of ${results.length} sessions could not be updated.`)
+    },
+    onSettled: () => invalidateSessionDerivedQueries(qc),
+    onError: (err) => setBillingError(String(err))
+  })
+
+  function handleMarkAllPaid() {
     if (unpaid.length === 0) return
     if (!confirm(`Mark all ${unpaid.length} unpaid session${unpaid.length === 1 ? '' : 's'} as paid?`)) return
-    Promise.all(unpaid.map((s) => window.api.sessions.setPaid(s.id, 1))).then(() => {
-      invalidateSessionDerivedQueries(qc)
-    })
+    setBillingError(null)
+    markAllPaid.mutate()
   }
 
   // Superbill date range — default to current month
@@ -460,10 +497,15 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
             : 'All caught up'}
         </div>
         <div className="mt-4 flex gap-2">
-          <Btn variant="secondary" disabled={unpaid.length === 0} onClick={markAllPaid}>
+          <Btn
+            variant="secondary"
+            disabled={unpaid.length === 0 || markAllPaid.isPending}
+            onClick={handleMarkAllPaid}
+          >
             Mark all paid
           </Btn>
         </div>
+        {billingError && <p className="mt-2 text-sm text-danger">{billingError}</p>}
       </Card>
 
       {/* Superbill — folded in from the old separate tab */}
@@ -562,7 +604,8 @@ function BillingPanel({ clientId, sessions }: { clientId: string; sessions: Sess
                       <Btn
                         size="sm"
                         variant="secondary"
-                        onClick={() => window.api.sessions.setPaid(s.id, 1).then(() => invalidateSessionDerivedQueries(qc))}
+                        disabled={setPaidOne.isPending}
+                        onClick={() => { setBillingError(null); setPaidOne.mutate(s.id) }}
                       >
                         Mark paid
                       </Btn>
@@ -799,6 +842,9 @@ function InfoForm({
     enabled: !isNew
   })
   const [form, setForm] = useState<ClientInput>(EMPTY)
+  const [baseline, setBaseline] = useState<string>(() => JSON.stringify(EMPTY))
+  const isDirty = JSON.stringify(form) !== baseline
+  const { blocker, bypass } = useUnsavedChangesGuard(isDirty)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false)
   const loadedClientId = useRef<string | undefined>(undefined)
@@ -808,12 +854,14 @@ function InfoForm({
       if (loadedClientId.current !== undefined) {
         loadedClientId.current = undefined
         setForm(EMPTY)
+        setBaseline(JSON.stringify(EMPTY))
       }
       return
     }
     if (!clientQuery.data || loadedClientId.current === clientQuery.data.id) return
     loadedClientId.current = clientQuery.data.id
     setForm(clientQuery.data)
+    setBaseline(JSON.stringify(clientQuery.data))
   }, [clientQuery.data, isNew])
 
   const save = useMutation({
@@ -821,7 +869,9 @@ function InfoForm({
     onSuccess: (client) => {
       qc.invalidateQueries({ queryKey: ['clients'] })
       qc.setQueryData(['clients', client.id], client)
-      if (isNew) navigate(`/clients/${client.id}`)
+      setBaseline(JSON.stringify(client))
+      setForm(client)
+      if (isNew) bypass(() => navigate(`/clients/${client.id}`))
       else if (onDone) onDone()
     }
   })
@@ -830,7 +880,7 @@ function InfoForm({
     mutationFn: (cid: string) => window.api.clients.delete(cid),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] })
-      navigate('/clients')
+      bypass(() => navigate('/clients'))
     }
   })
 
@@ -841,6 +891,7 @@ function InfoForm({
     },
     onSuccess: (client) => {
       setForm(client)
+      setBaseline(JSON.stringify(client))
       qc.invalidateQueries({ queryKey: ['clients'] })
       qc.setQueryData(['clients', client.id], client)
       if (onDone) onDone()
@@ -856,7 +907,7 @@ function InfoForm({
       qc.invalidateQueries({ queryKey: ['documents'] })
       qc.removeQueries({ queryKey: ['clients', clientId] })
       setPermanentDeleteOpen(false)
-      navigate('/clients')
+      bypass(() => navigate('/clients', { replace: true }))
     }
   })
 
@@ -989,6 +1040,8 @@ function InfoForm({
           }
         />
       )}
+
+      <UnsavedChangesDialog blocker={blocker} />
     </form>
   )
 }
@@ -1022,19 +1075,10 @@ function PermanentDeleteModal({
   const matches = typed === fullName
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(20,20,20,0.45)' }}
-      onClick={pending ? undefined : onCancel}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="mx-4 w-full max-w-md rounded-lg bg-surface p-5 shadow-lg"
-        style={{ border: '0.5px solid var(--color-hairline)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onCancel} closeDisabled={pending} labelledBy="permanent-delete-title" width={448}>
+      <div className="p-5">
         <h3
+          id="permanent-delete-title"
           className="m-0 text-lg font-semibold text-ink"
           style={{ fontFamily: 'var(--font-head)' }}
         >
@@ -1074,7 +1118,7 @@ function PermanentDeleteModal({
           </Btn>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 

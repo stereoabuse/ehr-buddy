@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { HashRouter, Route, Routes } from 'react-router-dom'
+import { createHashRouter, Outlet, RouterProvider } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import ClientList from './pages/ClientList'
 import ClientDetail from './pages/ClientDetail'
@@ -17,31 +17,43 @@ const queryClient = new QueryClient({
   }
 })
 
+function Layout() {
+  return (
+    <div className="flex h-screen min-h-0 bg-canvas text-body">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar />
+        <main className="flex-1 overflow-auto px-6 py-6">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  )
+}
+
+const router = createHashRouter([
+  {
+    path: '/',
+    element: <Layout />,
+    children: [
+      { index: true, element: <Dashboard /> },
+      { path: 'profile', element: <ClinicianProfile /> },
+      { path: 'clients', element: <ClientList /> },
+      { path: 'clients/new', element: <ClientDetail /> },
+      { path: 'clients/:id', element: <ClientDetail /> },
+      { path: 'reports', element: <Reports /> },
+      { path: 'clients/:clientId/sessions/new', element: <SessionEditor /> },
+      { path: 'clients/:clientId/sessions/:sessionId', element: <SessionEditor /> },
+      { path: 'activity', element: <Activity /> },
+      { path: 'settings', element: <Settings /> }
+    ]
+  }
+])
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <HashRouter>
-        <div className="flex h-screen min-h-0 bg-canvas text-body">
-          <Sidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <TopBar />
-            <main className="flex-1 overflow-auto px-6 py-6">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/profile" element={<ClinicianProfile />} />
-                <Route path="/clients" element={<ClientList />} />
-                <Route path="/clients/new" element={<ClientDetail />} />
-                <Route path="/clients/:id" element={<ClientDetail />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/clients/:clientId/sessions/new" element={<SessionEditor />} />
-                <Route path="/clients/:clientId/sessions/:sessionId" element={<SessionEditor />} />
-                <Route path="/activity" element={<Activity />} />
-                <Route path="/settings" element={<Settings />} />
-              </Routes>
-            </main>
-          </div>
-        </div>
-      </HashRouter>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   )
 }

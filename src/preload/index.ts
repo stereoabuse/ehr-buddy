@@ -4,6 +4,11 @@ import type { Api } from '../shared/api-types'
 
 const api: Api = {
   ping: () => ipcRenderer.invoke(IPC.PING),
+  app: {
+    version: () => ipcRenderer.invoke(IPC.APP_VERSION),
+    dataDir: () => ipcRenderer.invoke(IPC.APP_DATA_DIR),
+    setUnsavedChanges: (dirty) => ipcRenderer.send(IPC.APP_SET_UNSAVED_CHANGES, Boolean(dirty))
+  },
   clients: {
     list: () => ipcRenderer.invoke(IPC.CLIENTS_LIST),
     roster: () => ipcRenderer.invoke(IPC.CLIENTS_ROSTER),

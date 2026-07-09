@@ -10,6 +10,9 @@ import { Pill } from '../components/Pill'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Icd10Picker, parseIcd10String, serializeIcd10List } from '../components/Icd10Picker'
+import { Modal } from '../components/Modal'
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
+import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
 import { initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import { invalidateSessionDerivedQueries } from '../lib/query'
@@ -20,6 +23,7 @@ import {
   RECOMMENDATION_OPTIONS,
   RISK_FACTOR_OPTIONS,
   fromLegacyBody,
+  noteHasContent,
   parseStructuredNote,
   serializeStructuredNote,
   type Recommendation,
@@ -33,6 +37,25 @@ function calcDuration(start: string, end: string): number | null {
   if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null
   const minutes = eh * 60 + em - (sh * 60 + sm)
   return minutes > 0 ? minutes : null
+}
+
+function sessionSnapshot(form: SessionInput, feeDollarStr: string): string {
+  return JSON.stringify({ ...form, feeDollarStr })
+}
+
+function makeInitialForm(clientId: string | undefined): SessionInput {
+  return {
+    client_id: clientId ?? '',
+    session_date: practiceDateString(),
+    start_time: '',
+    end_time: '',
+    cpt_code: '',
+    icd10_codes: null,
+    fee_cents: 0,
+    paid: 0,
+    note_format: 'STRUCTURED',
+    note_body: serializeStructuredNote(EMPTY_STRUCTURED_NOTE)
+  }
 }
 
 function formatTimestamp(iso: string): string {
@@ -75,19 +98,13 @@ export default function SessionEditor() {
     return clinicianQuery.data?.default_fees_json ? JSON.parse(clinicianQuery.data.default_fees_json) : {}
   }, [clinicianQuery.data])
 
-  const [form, setForm] = useState<SessionInput>({
-    client_id: clientId ?? '',
-    session_date: practiceDateString(),
-    start_time: '',
-    end_time: '',
-    cpt_code: '',
-    icd10_codes: null,
-    fee_cents: 0,
-    paid: 0,
-    note_format: 'STRUCTURED',
-    note_body: serializeStructuredNote(EMPTY_STRUCTURED_NOTE)
-  })
+  const [form, setForm] = useState<SessionInput>(() => makeInitialForm(clientId))
+  const [baseline, setBaseline] = useState<string>(() =>
+    sessionSnapshot(makeInitialForm(clientId), '0')
+  )
   const [feeDollarStr, setFeeDollarStr] = useState('0')
+  const isDirty = sessionSnapshot(form, feeDollarStr) !== baseline
+  const { blocker, bypass } = useUnsavedChangesGuard(isDirty)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [amendmentDraft, setAmendmentDraft] = useState('')
   const [showAmendForm, setShowAmendForm] = useState(false)
@@ -105,9 +122,10 @@ export default function SessionEditor() {
     if (!s) return
     const isLegacy = s.note_format !== 'STRUCTURED'
     const isSignedNote = !!s.signed_at
+    let next: SessionInput
     if (isLegacy && !isSignedNote) {
       const migrated = fromLegacyBody(s.note_body)
-      setForm({
+      next = {
         client_id: s.client_id,
         session_date: s.session_date,
         start_time: s.start_time,
@@ -119,9 +137,9 @@ export default function SessionEditor() {
         note_format: 'STRUCTURED',
         note_body: serializeStructuredNote(migrated),
         id: s.id
-      })
+      }
     } else {
-      setForm({
+      next = {
         client_id: s.client_id,
         session_date: s.session_date,
         start_time: s.start_time,
@@ -133,14 +151,35 @@ export default function SessionEditor() {
         note_format: s.note_format,
         note_body: s.note_body,
         id: s.id
-      })
+      }
     }
-    setFeeDollarStr((s.fee_cents / 100).toString())
+    const feeStr = (s.fee_cents / 100).toString()
+    setForm(next)
+    setFeeDollarStr(feeStr)
+    setBaseline(sessionSnapshot(next, feeStr))
   }, [sessionQuery.data])
 
   const session: Session | undefined = sessionQuery.data ?? undefined
   const isSigned = !!session?.signed_at
   const isLegacySigned = isSigned && session?.note_format !== 'STRUCTURED'
+
+  const billingDirty = useMemo(() => {
+    if (!isSigned || !session) return false
+    const d = parseFloat(feeDollarStr)
+    const feeCents = isNaN(d) ? 0 : Math.round(d * 100)
+    return feeCents !== session.fee_cents || form.paid !== session.paid
+  }, [isSigned, session, feeDollarStr, form.paid])
+
+  function doSaveBilling(): void {
+    const d = parseFloat(feeDollarStr)
+    const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
+    save.mutate({ ...form, fee_cents }, {
+      onSuccess: () => {
+        setForm((f) => ({ ...f, fee_cents }))
+        setBaseline(sessionSnapshot({ ...form, fee_cents }, feeDollarStr))
+      }
+    })
+  }
   const duration = useMemo(() => calcDuration(form.start_time, form.end_time), [form.start_time, form.end_time])
   const cpt = useMemo(() => CPT_CODES.find((c) => c.code === form.cpt_code), [form.cpt_code])
 
@@ -174,14 +213,15 @@ export default function SessionEditor() {
   }
 
   function handleCptChange(code: string): void {
-    setForm((f) => {
-      const defaultFee = defaultFees[code]
-      if (f.fee_cents === 0 && defaultFee != null) {
-        setFeeDollarStr((defaultFee / 100).toString())
-        return { ...f, cpt_code: code, fee_cents: defaultFee }
-      }
-      return { ...f, cpt_code: code }
-    })
+    const defaultFee = defaultFees[code]
+    const typed = parseFloat(feeDollarStr)
+    const feeIsBlank = Number.isNaN(typed) || typed === 0
+    if (feeIsBlank && defaultFee != null) {
+      setFeeDollarStr((defaultFee / 100).toString())
+      setForm((f) => ({ ...f, cpt_code: code, fee_cents: defaultFee }))
+    } else {
+      setForm((f) => ({ ...f, cpt_code: code }))
+    }
   }
 
   const save = useMutation({
@@ -234,7 +274,7 @@ export default function SessionEditor() {
     mutationFn: (id: string) => window.api.sessions.delete(id),
     onSuccess: () => {
       invalidateSessionDerivedQueries(qc)
-      navigate(`/clients/${clientId}`)
+      bypass(() => navigate(`/clients/${clientId}`, { replace: true }))
     }
   })
 
@@ -255,23 +295,29 @@ export default function SessionEditor() {
     const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
     save.mutate({ ...form, fee_cents }, {
       onSuccess: (saved) => {
+        setForm((f) => ({ ...f, fee_cents }))
+        setBaseline(sessionSnapshot({ ...form, fee_cents, id: saved.id }, feeDollarStr))
         if (isNew) {
-          navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true })
+          bypass(() => navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true }))
         } else if (andClose) {
-          navigate(`/clients/${clientId}`)
+          bypass(() => navigate(`/clients/${clientId}`))
         }
       }
     })
   }
 
   async function doSign(): Promise<void> {
-    if (!validate()) return
+    if (!validate()) {
+      setSignError('Fix the highlighted fields before signing.')
+      return
+    }
     const d = parseFloat(feeDollarStr)
     const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
     try {
       if (isNew) {
         const saved = await save.mutateAsync({ ...form, fee_cents })
-        navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true })
+        setBaseline(sessionSnapshot({ ...form, fee_cents, id: saved.id }, feeDollarStr))
+        bypass(() => navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true }))
         await window.api.sessions.sign({
           id: saved.id,
           body: form.note_body ?? '',
@@ -282,6 +328,7 @@ export default function SessionEditor() {
         setShowSignModal(false)
       } else {
         await save.mutateAsync({ ...form, fee_cents })
+        setBaseline(sessionSnapshot({ ...form, fee_cents }, feeDollarStr))
         await sign.mutateAsync()
       }
     } catch (err) {
@@ -367,16 +414,33 @@ export default function SessionEditor() {
 
         <SaveStatus isSigned={isSigned} signedAt={session?.signed_at ?? null} savedAt={savedAt} pending={save.isPending} />
 
-        <Btn variant="secondary" onClick={() => navigate(`/clients/${clientId}`)}>
-          Close
-        </Btn>
+        {isSigned && billingDirty && (
+          <Btn onClick={doSaveBilling} disabled={save.isPending}>
+            {save.isPending ? 'Saving…' : 'Save billing'}
+          </Btn>
+        )}
         {!isSigned && (
           <Btn variant="secondary" onClick={() => doSave(false)} disabled={save.isPending}>
             {save.isPending ? 'Saving…' : 'Save Draft'}
           </Btn>
         )}
         {!isSigned && (
-          <Btn icon="lock" onClick={() => setShowSignModal(true)} disabled={save.isPending || sign.isPending}>
+          <Btn
+            icon="lock"
+            onClick={() => {
+              if (!validate()) {
+                setSignError('Fix the highlighted fields before signing.')
+                return
+              }
+              if (!noteHasContent(form.note_format ?? 'STRUCTURED', form.note_body)) {
+                setSignError('Cannot sign an empty note.')
+                return
+              }
+              setSignError(null)
+              setShowSignModal(true)
+            }}
+            disabled={save.isPending || sign.isPending}
+          >
             Sign &amp; Lock
           </Btn>
         )}
@@ -596,12 +660,12 @@ export default function SessionEditor() {
                   onChange={(v) => setFeeDollarStr(v)}
                   disabled={false}
                 />
-                <label className={`flex items-center gap-2 text-base text-body ${isSigned ? 'cursor-default' : 'cursor-pointer'}`}>
+                <label className="flex items-center gap-2 text-base text-body cursor-pointer">
                   <input
                     type="checkbox"
                     checked={form.paid === 1}
                     onChange={(e) => updateForm('paid', e.target.checked ? 1 : 0)}
-                    disabled={isSigned}
+                    disabled={false}
                   />
                   Mark as paid
                 </label>
@@ -659,16 +723,7 @@ export default function SessionEditor() {
 
       {/* Sign & Lock modal */}
       {showSignModal && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(31,58,54,0.32)' }}
-          onClick={() => setShowSignModal(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-[460px] overflow-hidden rounded-xl bg-surface"
-            style={{ boxShadow: '0 30px 80px rgba(0,0,0,0.3)' }}
-          >
+        <Modal onClose={() => setShowSignModal(false)} labelledBy="sign-modal-title" width={460}>
             <div
               className="flex items-center gap-3 px-6 py-5"
               style={{ borderBottom: '0.5px solid var(--color-hairline)' }}
@@ -677,6 +732,7 @@ export default function SessionEditor() {
                 <Icon name="lock" size={18} className="text-primary" />
               </div>
               <h3
+                id="sign-modal-title"
                 className="m-0 text-lg font-semibold text-ink"
                 style={{ fontFamily: 'var(--font-head)' }}
               >
@@ -719,9 +775,10 @@ export default function SessionEditor() {
                 {sign.isPending || save.isPending ? 'Signing…' : 'Sign & Lock'}
               </Btn>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
+
+      <UnsavedChangesDialog blocker={blocker} />
     </div>
   )
 }

@@ -264,6 +264,18 @@ describe('noteHasContent', () => {
     expect(noteHasContent('STRUCTURED', json)).toBe(true)
   })
 
+  it('treats a note with only an observation selected as content', () => {
+    expect(
+      noteHasContent(
+        'STRUCTURED',
+        serializeStructuredNote({
+          ...EMPTY_STRUCTURED_NOTE,
+          observations: { ...EMPTY_STRUCTURED_NOTE.observations, mood: 'Euthymic' }
+        })
+      )
+    ).toBe(true)
+  })
+
   it('returns true when a STRUCTURED note has a recommendation set', () => {
     const json = serializeStructuredNote({ ...EMPTY_STRUCTURED_NOTE, recommendation: 'continue' })
     expect(noteHasContent('STRUCTURED', json)).toBe(true)

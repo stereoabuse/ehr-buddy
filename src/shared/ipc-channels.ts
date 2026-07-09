@@ -1,5 +1,8 @@
 export const IPC = {
   PING: 'ping',
+  APP_VERSION: 'app:version',
+  APP_DATA_DIR: 'app:dataDir',
+  APP_SET_UNSAVED_CHANGES: 'app:set-unsaved-changes',
   CLIENTS_LIST: 'clients:list',
   CLIENTS_ROSTER: 'clients:roster',
   CLIENTS_GET: 'clients:get',

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
@@ -19,6 +19,15 @@ export default function Settings() {
     mutationFn: () => window.api.backup.fullArchive(),
     onSuccess: (r) => setArchiveStatus(r ? `Archive saved to ${r.path}` : 'Cancelled'),
     onError: (e) => setArchiveStatus(`Error: ${String(e)}`)
+  })
+
+  const { data: appVersion, isError: versionError } = useQuery({
+    queryKey: ['app-version'],
+    queryFn: () => window.api.app.version()
+  })
+  const { data: dataDir } = useQuery({
+    queryKey: ['app-data-dir'],
+    queryFn: () => window.api.app.dataDir()
   })
 
   const isError = backupStatus?.startsWith('Error') ?? false
@@ -44,8 +53,11 @@ export default function Settings() {
                 Save a snapshot of your local database to a folder of your choice.
               </p>
               <p className="mt-1 text-sm text-muted">
-                The one-click backup includes the database only. The documents folder lives separately —
-                see SECURITY.md for the path.
+                The one-click backup includes the database only. Uploaded documents live in{' '}
+                <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                  {dataDir ? `${dataDir}/documents` : 'your app data folder'}
+                </span>
+                ; use the full archive below to capture both.
               </p>
               {backupStatus && (
                 <p className={`mt-2 text-sm ${isError ? 'text-danger' : 'text-success'}`}>
@@ -138,14 +150,20 @@ export default function Settings() {
           <SectionHeader title="About" />
           <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-2 px-[18px] py-4 text-base">
             <dt className="font-medium text-muted">App</dt>
-            <dd className="text-ink">EHR Buddy v0.3.0</dd>
+            <dd className="text-ink">
+              EHR Buddy {appVersion ? `v${appVersion}` : versionError ? '(version unavailable)' : '…'}
+            </dd>
             <dt className="font-medium text-muted">Data</dt>
             <dd className="text-body">
-              Stored locally in your user data folder. Disk encryption strongly recommended — see SECURITY.md.
+              Stored locally at{' '}
+              <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                {dataDir ?? 'your user data folder'}
+              </span>
+              . Disk encryption strongly recommended.
             </dd>
             <dt className="font-medium text-muted">Network</dt>
             <dd className="text-body">
-              EHR Buddy never sends your data anywhere. No cloud, no telemetry, no third-party services.
+              EHR Buddy never sends your data anywhere.
             </dd>
           </dl>
         </Card>

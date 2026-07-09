@@ -23,6 +23,7 @@ import {
   signatureImageSchema
 } from '../../shared/validation'
 import { headMatchesExtension } from '../../shared/file-magic'
+import { noteHasContent } from '../../shared/structured-note'
 import * as clientsRepo from '../db/repos/clients'
 import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
@@ -99,11 +100,16 @@ const permanentDeleteClientSchema = z.object({
   confirmation: z.string().min(1)
 })
 
-const signSchema = z.object({
-  id: z.string().min(1),
-  body: z.string().trim().min(1, 'Cannot sign an empty note'),
-  note_format: z.enum(['DAP', 'FREE', 'STRUCTURED'])
-})
+const signSchema = z
+  .object({
+    id: z.string().min(1),
+    body: z.string().trim().min(1, 'Cannot sign an empty note'),
+    note_format: z.enum(['DAP', 'FREE', 'STRUCTURED'])
+  })
+  .refine((v) => noteHasContent(v.note_format, v.body), {
+    message: 'Cannot sign an empty note',
+    path: ['body']
+  })
 
 const addAmendmentSchema = z.object({
   session_id: z.string().min(1),
@@ -199,6 +205,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.PING, () => {
     return { ok: true, message: 'pong from main', ts: new Date().toISOString() }
   })
+
+  ipcMain.handle(IPC.APP_VERSION, () => app.getVersion())
+  ipcMain.handle(IPC.APP_DATA_DIR, () => app.getPath('userData'))
 
   // ── clients ─────────────────────────────────────────────────
   ipcMain.handle(IPC.CLIENTS_LIST, () => clientsRepo.list())
@@ -436,7 +445,11 @@ export function registerIpcHandlers(): void {
   })
 
   // ── reports ─────────────────────────────────────────────────
-  const reportArgsSchema = z.object({ fromDate: z.string().min(1), toDate: z.string().min(1) })
+  const reportArgsSchema = z.object({
+    fromDate: z.string().min(1),
+    toDate: z.string().min(1),
+    includeArchived: z.boolean().optional()
+  })
 
   ipcMain.handle(IPC.REPORT_INCOME_PDF, async (_e, input: unknown) => {
     const args = reportArgsSchema.parse(input)

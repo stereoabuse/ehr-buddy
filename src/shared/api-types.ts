@@ -35,6 +35,7 @@ export interface NoteExportArgs {
 export interface ReportArgs {
   fromDate: string
   toDate: string
+  includeArchived?: boolean
 }
 
 export interface SignSessionArgs {
@@ -55,6 +56,11 @@ export interface PermanentDeleteClientArgs {
 
 export interface Api {
   ping: () => Promise<PingResult>
+  app: {
+    version: () => Promise<string>
+    dataDir: () => Promise<string>
+    setUnsavedChanges: (dirty: boolean) => void
+  }
   clients: {
     list: () => Promise<ClientListItem[]>
     roster: () => Promise<RosterRow[]>

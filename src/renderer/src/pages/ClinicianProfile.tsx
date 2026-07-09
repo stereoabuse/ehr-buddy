@@ -5,6 +5,8 @@ import { CPT_CODES } from '@shared/cpt-codes'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
 import { Field } from '../components/Field'
+import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard'
+import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog'
 
 const SIGNATURE_MAX_BYTES = 1_000_000
 const SIGNATURE_ACCEPT = 'image/png,image/jpeg'
@@ -39,6 +41,11 @@ export default function ClinicianProfile() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [signatureError, setSignatureError] = useState<string | null>(null)
   const signatureInputRef = useRef<HTMLInputElement | null>(null)
+  const [baseline, setBaseline] = useState<string>(() =>
+    JSON.stringify({ form: EMPTY, feeStrings: {} })
+  )
+  const isDirty = JSON.stringify({ form, feeStrings }) !== baseline
+  const { blocker } = useUnsavedChangesGuard(isDirty)
 
   useEffect(() => {
     if (clinicianQuery.data) {
@@ -51,7 +58,7 @@ export default function ClinicianProfile() {
         strings[cpt] = (cents / 100).toString()
       }
       setFeeStrings(strings)
-      setForm({
+      const nextForm: ClinicianInput = {
         full_name: c.full_name,
         credentials: c.credentials,
         npi: c.npi,
@@ -67,7 +74,9 @@ export default function ClinicianProfile() {
         email: c.email,
         default_fees: feeCents,
         signature_image_base64: c.signature_image_base64
-      })
+      }
+      setForm(nextForm)
+      setBaseline(JSON.stringify({ form: nextForm, feeStrings: strings }))
     }
   }, [clinicianQuery.data])
 
@@ -128,7 +137,13 @@ export default function ClinicianProfile() {
       const d = parseFloat(str)
       if (!isNaN(d) && d > 0) default_fees[cpt] = Math.round(d * 100)
     }
-    save.mutate({ ...form, default_fees })
+    const nextForm = { ...form, default_fees }
+    save.mutate(nextForm, {
+      onSuccess: () => {
+        setForm(nextForm)
+        setBaseline(JSON.stringify({ form: nextForm, feeStrings }))
+      }
+    })
   }
 
   if (clinicianQuery.isLoading) {
@@ -287,6 +302,8 @@ export default function ClinicianProfile() {
           {save.isPending ? 'Saving…' : 'Save'}
         </Btn>
       </div>
+
+      <UnsavedChangesDialog blocker={blocker} />
     </form>
   )
 }
