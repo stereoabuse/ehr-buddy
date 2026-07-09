@@ -33,7 +33,7 @@ import { generateNotePdf } from '../pdf/note'
 import { generateTaxReport } from '../pdf/tax-report'
 import { generateCsvExport } from '../reports/csv-export'
 import { runBackup, runFullArchive } from '../backup'
-import { audit, exportAuditCsv, listAudit } from '../audit'
+import { audit, exportAuditCsv, lastBackupTimestamp, listAudit } from '../audit'
 import { isSessionOutputPath } from '../session-outputs'
 
 const clientUpsertSchema = z.object({
@@ -480,6 +480,8 @@ export function registerIpcHandlers(): void {
     if (path) audit('archive_export', 'backup', null, { path })
     return path ? { path } : null
   })
+
+  ipcMain.handle(IPC.BACKUP_LAST_RUN, () => lastBackupTimestamp())
 
   // ── audit log ───────────────────────────────────────────────
   // Reads of the audit log itself are intentionally not audited (would be

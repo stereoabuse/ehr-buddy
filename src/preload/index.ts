@@ -45,7 +45,8 @@ const api: Api = {
   },
   backup: {
     run: () => ipcRenderer.invoke(IPC.BACKUP_RUN),
-    fullArchive: () => ipcRenderer.invoke(IPC.BACKUP_FULL_ARCHIVE)
+    fullArchive: () => ipcRenderer.invoke(IPC.BACKUP_FULL_ARCHIVE),
+    lastRun: () => ipcRenderer.invoke(IPC.BACKUP_LAST_RUN)
   },
   audit: {
     list: (filter) => ipcRenderer.invoke(IPC.AUDIT_LIST, filter),

@@ -71,6 +71,19 @@ export function listAudit(filter: AuditFilter = {}): AuditEntry[] {
   return getDb().prepare(sql).all(...params) as AuditEntry[]
 }
 
+/**
+ * Timestamp of the most recent backup-entity audit entry (covers both a
+ * one-click backup and a full archive export), or null if none has run yet.
+ * Intentionally narrow: no filter/entity params, unlike listAudit — this does
+ * not expose general audit querying to the renderer.
+ */
+export function lastBackupTimestamp(): string | null {
+  const row = getDb()
+    .prepare("SELECT ts FROM audit_log WHERE entity_type = 'backup' ORDER BY ts DESC LIMIT 1")
+    .get() as { ts: string } | undefined
+  return row?.ts ?? null
+}
+
 export async function exportAuditCsv(filter: AuditFilter = {}): Promise<string | null> {
   const rows = listAudit({ ...filter, limit: 100000 })
   const defaultName = `audit-log-${practiceDateString()}.csv`

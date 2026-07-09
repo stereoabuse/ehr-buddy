@@ -45,3 +45,28 @@ export function initialsOfFullName(fullName: string | null | undefined): string 
   if (parts.length === 1) return parts[0]!.charAt(0).toUpperCase()
   return (parts[0]!.charAt(0) + parts[parts.length - 1]!.charAt(0)).toUpperCase()
 }
+
+/** Whole days elapsed between an ISO timestamp and `now`, floored (partial days count as 0). */
+export function daysSince(iso: string, now: Date = new Date()): number {
+  const ms = now.getTime() - new Date(iso).getTime()
+  return Math.floor(ms / (1000 * 60 * 60 * 24))
+}
+
+/** Renders a last-backup timestamp as "never", "today", or "N day(s) ago". */
+export function backupRecencyLabel(lastRun: string | null, now: Date = new Date()): string {
+  if (!lastRun) return 'never'
+  const days = daysSince(lastRun, now)
+  if (days <= 0) return 'today'
+  if (days === 1) return '1 day ago'
+  return `${days} days ago`
+}
+
+/** True when there is no backup on record, or the last one is older than `thresholdDays` (default 7). */
+export function isBackupOverdue(
+  lastRun: string | null,
+  now: Date = new Date(),
+  thresholdDays = 7
+): boolean {
+  if (!lastRun) return true
+  return daysSince(lastRun, now) > thresholdDays
+}

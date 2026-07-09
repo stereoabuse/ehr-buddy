@@ -5,7 +5,7 @@ import { Card } from '../components/Card'
 import { Pill } from '../components/Pill'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
-import { fmtMoney, initialsOf } from '../lib/format'
+import { fmtMoney, initialsOf, backupRecencyLabel, isBackupOverdue } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 
 export default function Dashboard() {
@@ -14,6 +14,7 @@ export default function Dashboard() {
   const todaySessions = useQuery({ queryKey: ['sessions', 'today'], queryFn: () => window.api.sessions.today() })
   const unpaidSessions = useQuery({ queryKey: ['sessions', 'unpaid'], queryFn: () => window.api.sessions.unpaid() })
   const roster = useQuery({ queryKey: ['clients', 'roster'], queryFn: () => window.api.clients.roster() })
+  const backupLastRun = useQuery({ queryKey: ['backup', 'lastRun'], queryFn: () => window.api.backup.lastRun() })
 
   const today = todaySessions.data ?? []
   const unpaid = unpaidSessions.data ?? []
@@ -71,6 +72,17 @@ export default function Dashboard() {
       tone: 'danger',
       badge: 'Overdue',
       onClick: () => navigate('/reports')
+    })
+  }
+  // Only add the backup nudge once the query has actually resolved — never
+  // show "never backed up" while it's still pending or failed.
+  if (backupLastRun.isSuccess && isBackupOverdue(backupLastRun.data)) {
+    todos.push({
+      id: 'backup-nudge',
+      label: `Back up your data — last backup ${backupRecencyLabel(backupLastRun.data)}`,
+      tone: 'warn',
+      badge: 'Backup',
+      onClick: () => navigate('/settings')
     })
   }
   const overdueCount = todos.filter((t) => t.tone === 'danger').length

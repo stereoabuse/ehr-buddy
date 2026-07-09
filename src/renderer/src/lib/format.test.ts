@@ -5,7 +5,10 @@ import {
   fullDateLabel,
   firstNameOf,
   initialsOf,
-  initialsOfFullName
+  initialsOfFullName,
+  daysSince,
+  backupRecencyLabel,
+  isBackupOverdue
 } from './format'
 
 describe('fmtMoney', () => {
@@ -200,5 +203,78 @@ describe('initialsOfFullName', () => {
 
   it('strips honorific leaving a single name -> single initial', () => {
     expect(initialsOfFullName('Dr. House')).toBe('H')
+  })
+})
+
+describe('daysSince', () => {
+  const now = new Date('2026-07-09T12:00:00.000Z')
+
+  it('returns 0 for a timestamp earlier the same day', () => {
+    expect(daysSince('2026-07-09T01:00:00.000Z', now)).toBe(0)
+  })
+
+  it('returns 0 for the exact same instant', () => {
+    expect(daysSince('2026-07-09T12:00:00.000Z', now)).toBe(0)
+  })
+
+  it('returns 1 for exactly 24 hours earlier', () => {
+    expect(daysSince('2026-07-08T12:00:00.000Z', now)).toBe(1)
+  })
+
+  it('floors partial days', () => {
+    expect(daysSince('2026-07-08T13:00:00.000Z', now)).toBe(0)
+  })
+
+  it('returns 7 for exactly 7 days earlier', () => {
+    expect(daysSince('2026-07-02T12:00:00.000Z', now)).toBe(7)
+  })
+
+  it('returns a large count for a timestamp far in the past', () => {
+    expect(daysSince('2026-01-01T12:00:00.000Z', now)).toBe(189)
+  })
+})
+
+describe('backupRecencyLabel', () => {
+  const now = new Date('2026-07-09T12:00:00.000Z')
+
+  it('returns "never" for null', () => {
+    expect(backupRecencyLabel(null, now)).toBe('never')
+  })
+
+  it('returns "today" for a timestamp earlier today', () => {
+    expect(backupRecencyLabel('2026-07-09T01:00:00.000Z', now)).toBe('today')
+  })
+
+  it('returns singular "1 day ago"', () => {
+    expect(backupRecencyLabel('2026-07-08T12:00:00.000Z', now)).toBe('1 day ago')
+  })
+
+  it('returns plural "N days ago"', () => {
+    expect(backupRecencyLabel('2026-07-02T12:00:00.000Z', now)).toBe('7 days ago')
+  })
+})
+
+describe('isBackupOverdue', () => {
+  const now = new Date('2026-07-09T12:00:00.000Z')
+
+  it('is overdue when there is no backup on record', () => {
+    expect(isBackupOverdue(null, now)).toBe(true)
+  })
+
+  it('is not overdue exactly 7 days out', () => {
+    expect(isBackupOverdue('2026-07-02T12:00:00.000Z', now)).toBe(false)
+  })
+
+  it('is overdue at 8 whole days out', () => {
+    expect(isBackupOverdue('2026-07-01T12:00:00.000Z', now)).toBe(true)
+  })
+
+  it('is not overdue for a recent backup', () => {
+    expect(isBackupOverdue('2026-07-09T01:00:00.000Z', now)).toBe(false)
+  })
+
+  it('respects a custom threshold', () => {
+    expect(isBackupOverdue('2026-07-05T12:00:00.000Z', now, 3)).toBe(true)
+    expect(isBackupOverdue('2026-07-08T12:00:00.000Z', now, 3)).toBe(false)
   })
 })

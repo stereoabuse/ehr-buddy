@@ -1,18 +1,32 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Btn } from '../components/Btn'
 import { Card } from '../components/Card'
 import { Icon } from '../components/Icon'
 import { showInFinderAction, useToast } from '../components/Toast'
+import { backupRecencyLabel } from '../lib/format'
 
 export default function Settings() {
   const toast = useToast()
+  const qc = useQueryClient()
+
+  const {
+    data: lastBackup,
+    isPending: lastBackupPending,
+    isError: lastBackupError
+  } = useQuery({
+    queryKey: ['backup', 'lastRun'],
+    queryFn: () => window.api.backup.lastRun()
+  })
 
   const backup = useMutation({
     mutationFn: () => window.api.backup.run(),
     onSuccess: (r) => {
       // A null result means the user cancelled the save dialog — not an error.
-      if (r) toast.showSuccess(`Backed up to ${r.path}`, showInFinderAction(r.path))
+      if (r) {
+        toast.showSuccess(`Backed up to ${r.path}`, showInFinderAction(r.path))
+        qc.invalidateQueries({ queryKey: ['backup', 'lastRun'] })
+      }
     },
     onError: (e) => toast.showError(`Backup failed: ${String(e)}`)
   })
@@ -21,7 +35,10 @@ export default function Settings() {
     mutationFn: () => window.api.backup.fullArchive(),
     onSuccess: (r) => {
       // A null result means the user cancelled the save dialog — not an error.
-      if (r) toast.showSuccess(`Archive saved to ${r.path}`, showInFinderAction(r.path))
+      if (r) {
+        toast.showSuccess(`Archive saved to ${r.path}`, showInFinderAction(r.path))
+        qc.invalidateQueries({ queryKey: ['backup', 'lastRun'] })
+      }
     },
     onError: (e) => toast.showError(`Archive export failed: ${String(e)}`)
   })
@@ -60,6 +77,14 @@ export default function Settings() {
                   {dataDir ? `${dataDir}/documents` : 'your app data folder'}
                 </span>
                 ; use the full archive below to capture both.
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                Last backup:{' '}
+                {lastBackupPending
+                  ? 'checking…'
+                  : lastBackupError
+                    ? 'unavailable'
+                    : backupRecencyLabel(lastBackup ?? null)}
               </p>
             </div>
             <Btn

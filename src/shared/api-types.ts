@@ -98,6 +98,7 @@ export interface Api {
   backup: {
     run: () => Promise<{ path: string } | null>
     fullArchive: () => Promise<{ path: string } | null>
+    lastRun: () => Promise<string | null>
   }
   audit: {
     list: (filter: AuditFilter) => Promise<AuditEntry[]>

@@ -27,6 +27,7 @@ export const IPC = {
   REPORT_CSV: 'report:csv',
   BACKUP_RUN: 'backup:run',
   BACKUP_FULL_ARCHIVE: 'backup:fullArchive',
+  BACKUP_LAST_RUN: 'backup:last-run',
   AUDIT_LIST: 'audit:list',
   AUDIT_CSV: 'audit:csv',
   DOCUMENTS_LIST: 'documents:list',
