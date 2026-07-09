@@ -137,7 +137,13 @@ export default function ClinicianProfile() {
       const d = parseFloat(str)
       if (!isNaN(d) && d > 0) default_fees[cpt] = Math.round(d * 100)
     }
-    save.mutate({ ...form, default_fees })
+    const nextForm = { ...form, default_fees }
+    save.mutate(nextForm, {
+      onSuccess: () => {
+        setForm(nextForm)
+        setBaseline(JSON.stringify({ form: nextForm, feeStrings }))
+      }
+    })
   }
 
   if (clinicianQuery.isLoading) {

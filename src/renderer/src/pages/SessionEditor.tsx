@@ -173,7 +173,12 @@ export default function SessionEditor() {
   function doSaveBilling(): void {
     const d = parseFloat(feeDollarStr)
     const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
-    save.mutate({ ...form, fee_cents })
+    save.mutate({ ...form, fee_cents }, {
+      onSuccess: () => {
+        setForm((f) => ({ ...f, fee_cents }))
+        setBaseline(sessionSnapshot({ ...form, fee_cents }, feeDollarStr))
+      }
+    })
   }
   const duration = useMemo(() => calcDuration(form.start_time, form.end_time), [form.start_time, form.end_time])
   const cpt = useMemo(() => CPT_CODES.find((c) => c.code === form.cpt_code), [form.cpt_code])
@@ -290,6 +295,7 @@ export default function SessionEditor() {
     const fee_cents = isNaN(d) ? 0 : Math.round(d * 100)
     save.mutate({ ...form, fee_cents }, {
       onSuccess: (saved) => {
+        setForm((f) => ({ ...f, fee_cents }))
         setBaseline(sessionSnapshot({ ...form, fee_cents, id: saved.id }, feeDollarStr))
         if (isNew) {
           bypass(() => navigate(`/clients/${clientId}/sessions/${saved.id}`, { replace: true }))
