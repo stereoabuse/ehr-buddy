@@ -40,8 +40,10 @@ export interface StructuredNote {
   recommendation: Recommendation
 }
 
-// SimplePractice Standard Progress Note dropdowns. Strict lists — no
-// "Other" escape hatch, leaving the field empty is the way to skip.
+// SimplePractice Standard Progress Note dropdowns. The form also offers a
+// "Custom…" escape hatch per field: the typed text is stored as-is in the
+// same string field, so values outside these lists are valid. Leaving the
+// field empty is the way to skip.
 export const OBSERVATION_OPTIONS: Record<keyof StructuredObservations, string[]> = {
   cognitive_functioning: ['Oriented/Alert', 'Disorganized', 'Preoccupied', 'Circumstantial'],
   affect: ['Appropriate', 'Inappropriate', 'Labile', 'Constricted', 'Blunted', 'Flat'],

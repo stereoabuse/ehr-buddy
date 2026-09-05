@@ -1237,6 +1237,10 @@ function LineField({
   )
 }
 
+// Sentinel <option> value for the free-text escape hatch; never stored — the
+// typed text itself is what gets saved.
+const CUSTOM_OPTION = '__custom__'
+
 function SelectField({
   label,
   value,
@@ -1250,34 +1254,62 @@ function SelectField({
   onChange: (v: string) => void
   signed: boolean
 }) {
-  // Forgiving: if a saved value isn't in the options, render it as the
-  // selected entry so it doesn't silently disappear.
   const knownValues = new Set(options)
-  const showFallback = value !== '' && !knownValues.has(value)
+  // A saved value outside the options list (including pre-existing legacy
+  // values) is treated as custom text and shown in the input below.
+  const hasCustomValue = value !== '' && !knownValues.has(value)
+  const [customMode, setCustomMode] = useState(hasCustomValue)
+  const isCustom = customMode || hasCustomValue
+
+  function handleSelect(v: string): void {
+    if (v === CUSTOM_OPTION) {
+      setCustomMode(true)
+      if (!hasCustomValue) onChange('')
+    } else {
+      setCustomMode(false)
+      onChange(v)
+    }
+  }
+
   return (
-    <label className="block">
-      <div className="mb-1 text-base text-body">{label}</div>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={signed}
-        className="block h-9 w-full rounded-md px-3 text-base text-ink outline-none"
-        style={{
-          border: '0.5px solid var(--color-hairline)',
-          background: signed ? 'var(--color-canvas-2)' : 'var(--color-surface)'
-        }}
-      >
-        <option value="">Select…</option>
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-        {showFallback && (
-          <option value={value}>{value} (legacy)</option>
-        )}
-      </select>
-    </label>
+    <div>
+      <label className="block">
+        <div className="mb-1 text-base text-body">{label}</div>
+        <select
+          value={isCustom ? CUSTOM_OPTION : value}
+          onChange={(e) => handleSelect(e.target.value)}
+          disabled={signed}
+          className="block h-9 w-full rounded-md px-3 text-base text-ink outline-none"
+          style={{
+            border: '0.5px solid var(--color-hairline)',
+            background: signed ? 'var(--color-canvas-2)' : 'var(--color-surface)'
+          }}
+        >
+          <option value="">Select…</option>
+          {options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+          <option value={CUSTOM_OPTION}>Custom…</option>
+        </select>
+      </label>
+      {isCustom && (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={signed}
+          placeholder="Type your own…"
+          autoFocus={!signed && value === ''}
+          className="mt-1.5 block h-9 w-full rounded-md px-3 text-base text-ink outline-none placeholder:text-faint"
+          style={{
+            border: '0.5px solid var(--color-hairline)',
+            background: signed ? 'var(--color-canvas-2)' : 'var(--color-surface)'
+          }}
+        />
+      )}
+    </div>
   )
 }
 
