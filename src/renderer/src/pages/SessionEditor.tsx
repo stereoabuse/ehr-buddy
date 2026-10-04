@@ -276,7 +276,7 @@ export default function SessionEditor() {
   }
 
   const save = useMutation({
-    mutationFn: (input: SessionInput) => window.api.sessions.upsert(input),
+    mutationFn: (input: SessionInput) => window.api.sessions.upsert({ ...input, id: input.id ?? sessionId }),
     onSuccess: () => {
       setSavedAt(new Date())
       invalidateSessionDerivedQueries(qc)
@@ -351,7 +351,7 @@ export default function SessionEditor() {
     const fee_cents = feeCents
     save.mutate({ ...form, fee_cents }, {
       onSuccess: (saved) => {
-        setForm((f) => ({ ...f, fee_cents }))
+        setForm((f) => ({ ...f, fee_cents, id: saved.id }))
         setBaseline(sessionSnapshot({ ...form, fee_cents, id: saved.id }, feeDollarStr))
         // After a failed sign on a new session the route still says "new", so
         // the next successful Save Draft navigates to the created session.
