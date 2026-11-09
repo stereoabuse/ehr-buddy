@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { RosterRow } from '@shared/types'
 import { Card } from '../components/Card'
+import { showInFinderAction, useToast } from '../components/Toast'
 import { Pill } from '../components/Pill'
 import { Avatar } from '../components/Avatar'
 import { Btn } from '../components/Btn'
@@ -35,9 +36,19 @@ function isFilterId(value: string | null): value is Filter {
 
 export default function ClientList() {
   const navigate = useNavigate()
+  const toast = useToast()
   const { data, isLoading, error } = useQuery({
     queryKey: ['clients', 'roster'],
     queryFn: () => window.api.clients.roster()
+  })
+
+  const exportCsv = useMutation({
+    mutationFn: () => window.api.clients.exportCsv(),
+    onSuccess: (r) => {
+      // A null result means the user cancelled the save dialog — not an error.
+      if (r) toast.showSuccess(`Client list saved to ${r.path}`, showInFinderAction(r.path))
+    },
+    onError: (e) => toast.showError(`Client export failed: ${String(e)}`)
   })
 
   const [search, setSearch] = useState('')
@@ -99,10 +110,11 @@ export default function ClientList() {
         <Btn
           variant="secondary"
           icon="download"
-          disabled
-          title="Coming soon"
+          onClick={() => exportCsv.mutate()}
+          disabled={exportCsv.isPending || !data || data.length === 0}
+          title="Exports every client, active and archived, regardless of the filter below"
         >
-          Export CSV
+          {exportCsv.isPending ? 'Exporting…' : 'Export CSV'}
         </Btn>
         <Btn icon="plus" onClick={() => navigate('/clients/new')}>
           Add Client

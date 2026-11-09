@@ -69,7 +69,7 @@ export default function Dashboard() {
       label: `Follow up on ${unpaid.length} unpaid session${unpaid.length === 1 ? '' : 's'} across ${unpaidClientIds.size} client${unpaidClientIds.size === 1 ? '' : 's'}`,
       tone: 'danger',
       badge: 'Overdue',
-      onClick: () => navigate('/reports')
+      onClick: () => navigate('/billing')
     })
   }
   // Only add the backup nudge once the query has actually resolved — never

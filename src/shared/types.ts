@@ -142,6 +142,11 @@ export interface SessionWithClient extends Session {
  *  calendars never carry clinical text they don't display. */
 export type SessionListItem = Omit<SessionWithClient, 'note_body'>
 
+/** Calendar row: a list item plus whether the client is still active. */
+export interface CalendarSession extends SessionListItem {
+  client_active: number
+}
+
 export interface SessionInput {
   id?: string
   client_id: string
@@ -179,6 +184,13 @@ export interface ClientDocument {
   size_bytes: number | null
   uploaded_at: string
   notes: string | null
+}
+
+/** Document metadata joined with its client, for the all-documents view. */
+export interface ClientDocumentWithClient extends ClientDocument {
+  client_first_name: string
+  client_last_name: string
+  client_active: number
 }
 
 export interface DocumentUploadInput {

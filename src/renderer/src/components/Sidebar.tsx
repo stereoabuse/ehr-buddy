@@ -7,17 +7,17 @@ interface NavItem {
   id: string
   label: string
   icon: IconName
-  to?: string // omitted = placeholder, no route yet
+  to: string
   end?: boolean
 }
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'home', to: '/', end: true },
   { id: 'clients', label: 'Clients', icon: 'users', to: '/clients' },
-  { id: 'calendar', label: 'Calendar', icon: 'calendar' },
-  { id: 'billing', label: 'Billing', icon: 'dollar' },
+  { id: 'calendar', label: 'Calendar', icon: 'calendar', to: '/calendar' },
+  { id: 'billing', label: 'Billing', icon: 'dollar', to: '/billing' },
   { id: 'reports', label: 'Reports', icon: 'chart', to: '/reports' },
-  { id: 'documents', label: 'Documents', icon: 'inbox' },
+  { id: 'documents', label: 'Documents', icon: 'inbox', to: '/documents' },
   { id: 'activity', label: 'Activity', icon: 'shield', to: '/activity' },
   { id: 'settings', label: 'Settings', icon: 'settings', to: '/settings' }
 ]
@@ -46,7 +46,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Create button — TODO Phase 6: replace with menu (New session / New client / New note) */}
+      {/* Create button */}
       <div className="px-3.5 py-3.5">
         <button
           onClick={() => navigate('/clients/new')}
@@ -60,10 +60,9 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex flex-1 flex-col gap-px px-2">
-        {NAV_ITEMS.map((item) => {
-          if (!item.to) return <PlaceholderItem key={item.id} item={item} />
-          return <NavItemLink key={item.id} item={item} />
-        })}
+        {NAV_ITEMS.map((item) => (
+          <NavItemLink key={item.id} item={item} />
+        ))}
       </nav>
 
       {/* User card — clickable, routes to clinician profile */}
@@ -106,7 +105,7 @@ function formatCredLine(credentials: string | null | undefined, npi: string | nu
 function NavItemLink({ item }: { item: NavItem }) {
   return (
     <NavLink
-      to={item.to!}
+      to={item.to}
       end={item.end}
       title={item.label}
       className={({ isActive }) =>
@@ -135,19 +134,5 @@ function NavItemLink({ item }: { item: NavItem }) {
         </>
       )}
     </NavLink>
-  )
-}
-
-function PlaceholderItem({ item }: { item: NavItem }) {
-  return (
-    <button
-      type="button"
-      disabled
-      title={`${item.label} — coming soon`}
-      className="relative flex h-9 cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 text-base font-medium text-sidebar-muted opacity-60"
-    >
-      <Icon name={item.icon} size={18} className="text-sidebar-muted" />
-      <span>{item.label}</span>
-    </button>
   )
 }

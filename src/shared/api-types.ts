@@ -1,8 +1,10 @@
 import type {
   AuditEntry,
   AuditFilter,
+  CalendarSession,
   Client,
   ClientDocument,
+  ClientDocumentWithClient,
   ClientInput,
   Clinician,
   ClinicianInput,
@@ -35,6 +37,11 @@ export interface ReportArgs {
   fromDate: string
   toDate: string
   includeArchived?: boolean
+}
+
+export interface DateRangeArgs {
+  fromDate: string
+  toDate: string
 }
 
 export interface SignSessionArgs {
@@ -73,6 +80,7 @@ export interface Api {
     upsert: (input: ClientInput) => Promise<Client>
     delete: (id: string) => Promise<{ ok: boolean }>
     permanentDelete: (args: PermanentDeleteClientArgs) => Promise<PermanentDeleteClientResult>
+    exportCsv: () => Promise<{ path: string } | null>
   }
   clinician: {
     get: () => Promise<Clinician | null>
@@ -85,6 +93,7 @@ export interface Api {
     delete: (id: string) => Promise<{ ok: boolean }>
     today: () => Promise<SessionListItem[]>
     unpaid: () => Promise<SessionListItem[]>
+    inRange: (args: DateRangeArgs) => Promise<CalendarSession[]>
     setPaid: (id: string, paid: 0 | 1) => Promise<Session>
     sign: (args: SignSessionArgs) => Promise<Session>
     addAmendment: (args: AddAmendmentArgs) => Promise<SessionAmendment>
@@ -111,6 +120,7 @@ export interface Api {
   }
   documents: {
     list: (clientId: string) => Promise<ClientDocument[]>
+    listAll: () => Promise<ClientDocumentWithClient[]>
     upload: (input: DocumentUploadInput) => Promise<ClientDocument | null>
     open: (id: string) => Promise<{ ok: boolean; error?: string }>
     download: (id: string) => Promise<{ path: string } | null>

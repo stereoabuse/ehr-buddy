@@ -6,7 +6,8 @@ import type {
   SessionAmendment,
   SessionInput,
   SessionListItem,
-  SessionWithClient
+  SessionWithClient,
+  CalendarSession
 } from '../../../shared/types'
 import { practiceDateString } from '../../../shared/date'
 
@@ -206,6 +207,18 @@ export function allInRange(
        ORDER BY s.session_date, s.start_time`
     )
     .all(fromDate, toDate) as SessionWithClient[]
+}
+
+/** Every session in the range, archived clients included, without note bodies. */
+export function summaryInRange(fromDate: string, toDate: string): CalendarSession[] {
+  return getDb()
+    .prepare(
+      `SELECT ${LIST_COLUMNS}, c.active AS client_active
+       FROM sessions s JOIN clients c ON s.client_id = c.id
+       WHERE s.session_date >= ? AND s.session_date <= ?
+       ORDER BY s.session_date, s.start_time`
+    )
+    .all(fromDate, toDate) as CalendarSession[]
 }
 
 export function allUnpaid(): SessionListItem[] {

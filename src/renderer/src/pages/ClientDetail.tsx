@@ -24,6 +24,8 @@ import { fmtMoney, initialsOf } from '../lib/format'
 import { avatarColorFor } from '../lib/avatar'
 import { noteHasContent } from '@shared/structured-note'
 import { invalidateSessionDerivedQueries } from '../lib/query'
+import { DOC_TYPE_LABELS } from '@shared/documents'
+import { DocumentRow } from '../components/DocumentRow'
 
 const EMPTY: ClientInput = {
   first_name: '', last_name: '', dob: null,
@@ -42,12 +44,6 @@ function isTabId(value: string | null): value is TabId {
   return value != null && (TAB_IDS as readonly string[]).includes(value)
 }
 
-const DOC_TYPE_LABELS: Record<DocType, string> = {
-  consent: 'Consent',
-  roi: 'Release of Information',
-  intake: 'Intake',
-  other: 'Other'
-}
 
 export default function ClientDetail() {
   const { id } = useParams<{ id?: string }>()
@@ -693,7 +689,7 @@ function DocumentsPanel({ clientId, docs }: { clientId: string; docs: ClientDocu
         setStatus(`Uploaded ${doc.label}`)
         resetForm()
         setShowForm(false)
-        qc.invalidateQueries({ queryKey: ['documents', clientId] })
+        qc.invalidateQueries({ queryKey: ['documents'] })
       } else {
         setStatus('Cancelled')
       }
@@ -715,7 +711,7 @@ function DocumentsPanel({ clientId, docs }: { clientId: string; docs: ClientDocu
 
   const del = useMutation({
     mutationFn: (id: string) => window.api.documents.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents', clientId] })
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] })
   })
 
   function handleDelete(doc: ClientDocument) {
@@ -813,39 +809,14 @@ function DocumentsPanel({ clientId, docs }: { clientId: string; docs: ClientDocu
         {docs.length > 0 && (
           <div>
             {docs.map((d, i) => (
-              <div
+              <DocumentRow
                 key={d.id}
-                className="flex items-center gap-3.5 px-[18px] py-3.5"
-                style={{ borderBottom: i < docs.length - 1 ? '0.5px solid var(--color-divider)' : 'none' }}
-              >
-                <div
-                  className="flex h-11 w-9 shrink-0 items-center justify-center rounded bg-canvas-2"
-                  style={{ border: '0.5px solid var(--color-hairline)' }}
-                >
-                  <Icon name="pdf" size={18} className="text-muted" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-base font-semibold text-ink">{d.label}</div>
-                  <div className="mt-0.5 text-sm text-muted">
-                    {d.original_filename ?? d.stored_filename}
-                    {d.size_bytes != null && <> · {formatBytes(d.size_bytes)}</>}
-                    <> · Uploaded {new Date(d.uploaded_at).toLocaleDateString()}</>
-                  </div>
-                  {d.notes && <div className="mt-0.5 text-sm text-muted">{d.notes}</div>}
-                </div>
-                <Pill tone="primary">{DOC_TYPE_LABELS[d.doc_type]}</Pill>
-                <div className="flex items-center gap-1">
-                  <Btn size="sm" variant="ghost" onClick={() => open.mutate(d.id)}>
-                    Open
-                  </Btn>
-                  <Btn size="sm" variant="ghost" icon="download" onClick={() => download.mutate(d.id)}>
-                    Download
-                  </Btn>
-                  <Btn size="sm" variant="ghost" onClick={() => handleDelete(d)}>
-                    Delete
-                  </Btn>
-                </div>
-              </div>
+                doc={d}
+                isLast={i === docs.length - 1}
+                onOpen={() => open.mutate(d.id)}
+                onDownload={() => download.mutate(d.id)}
+                onDelete={() => handleDelete(d)}
+              />
             ))}
           </div>
         )}
@@ -870,12 +841,6 @@ function DocumentsPanel({ clientId, docs }: { clientId: string; docs: ClientDocu
       )}
     </div>
   )
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / 1024 / 1024).toFixed(1)} MB`
 }
 
 /* ─── Info form (editable) ──────────────────────────────────────── */

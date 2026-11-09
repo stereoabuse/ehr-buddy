@@ -8,12 +8,13 @@
 
 ## What it does
 
-- **Client roster & records** -- searchable list with diagnosis, last-seen, unpaid balance, and unsigned-note counts; per-client contact, emergency, and insurance details
+- **Client roster & records** -- searchable list with diagnosis, last-seen, unpaid balance, and unsigned-note counts, exportable to CSV; per-client contact, emergency, and insurance details
 - **Progress notes** -- structured form covering observations, content, interventions, treatment plan, risk, and medications, with CPT code and fee. Sign-off locks the note; later changes are recorded as dated, append-only amendments
 - **Diagnoses** -- ICD-10 autocomplete
-- **Per-client documents** -- upload PDFs or images (PDF, PNG, JPG, HEIC) tagged as consent, ROI, intake, or other
+- **Documents** -- upload PDFs or images (PDF, PNG, JPG, HEIC) per client, tagged as consent, ROI, intake, or other; browse all documents across clients from the Documents page
 - **Clinician profile** -- credentials, NPI, tax ID, and default fee schedule
-- **Billing** -- inline paid toggle on the Sessions tab and per-client Billing tab with unpaid balance and bulk "mark all paid"
+- **Billing** -- inline paid toggle on the Sessions tab, a per-client Billing tab, and a Billing page listing every unpaid session by client, with bulk "mark all paid"
+- **Calendar** -- read-only month view of logged sessions, with unsigned notes flagged
 - **Reports** -- superbill PDFs, date-ranged income summary PDF (per-client totals + CPT breakdown), and session-detail CSV
 - **Audit log** -- append-only record of chart and note views, every edit, and every export of patient data (HIPAA §164.312(b)), exportable to CSV. See [SECURITY.md](SECURITY.md#7-audit-log) for exactly what is logged
 - **Backups** -- snapshot the SQLite database, or export a ZIP archive of database + documents + CSVs + manifest

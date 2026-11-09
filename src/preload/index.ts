@@ -14,7 +14,8 @@ const api: Api = {
     get: (id) => ipcRenderer.invoke(IPC.CLIENTS_GET, id),
     upsert: (input) => ipcRenderer.invoke(IPC.CLIENTS_UPSERT, input),
     delete: (id) => ipcRenderer.invoke(IPC.CLIENTS_DELETE, id),
-    permanentDelete: (args) => ipcRenderer.invoke(IPC.CLIENTS_PERMANENT_DELETE, args)
+    permanentDelete: (args) => ipcRenderer.invoke(IPC.CLIENTS_PERMANENT_DELETE, args),
+    exportCsv: () => ipcRenderer.invoke(IPC.CLIENTS_EXPORT_CSV)
   },
   clinician: {
     get: () => ipcRenderer.invoke(IPC.CLINICIAN_GET),
@@ -27,6 +28,7 @@ const api: Api = {
     delete: (id) => ipcRenderer.invoke(IPC.SESSIONS_DELETE, id),
     today: () => ipcRenderer.invoke(IPC.SESSIONS_TODAY),
     unpaid: () => ipcRenderer.invoke(IPC.SESSIONS_UNPAID),
+    inRange: (args) => ipcRenderer.invoke(IPC.SESSIONS_IN_RANGE, args),
     setPaid: (id, paid) => ipcRenderer.invoke(IPC.SESSIONS_SET_PAID, { id, paid }),
     sign: (args) => ipcRenderer.invoke(IPC.SESSIONS_SIGN, args),
     addAmendment: (args) => ipcRenderer.invoke(IPC.SESSIONS_ADD_AMENDMENT, args),
@@ -53,6 +55,7 @@ const api: Api = {
   },
   documents: {
     list: (clientId) => ipcRenderer.invoke(IPC.DOCUMENTS_LIST, clientId),
+    listAll: () => ipcRenderer.invoke(IPC.DOCUMENTS_LIST_ALL),
     upload: (input) => ipcRenderer.invoke(IPC.DOCUMENTS_UPLOAD, input),
     open: (id) => ipcRenderer.invoke(IPC.DOCUMENTS_OPEN, id),
     download: (id) => ipcRenderer.invoke(IPC.DOCUMENTS_DOWNLOAD, id),

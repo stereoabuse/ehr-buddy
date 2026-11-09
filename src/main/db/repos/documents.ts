@@ -1,5 +1,5 @@
 import { getDb } from '../connection'
-import type { ClientDocument, DocType } from '../../../shared/types'
+import type { ClientDocument, ClientDocumentWithClient, DocType } from '../../../shared/types'
 
 export interface InsertInput {
   id: string
@@ -19,6 +19,20 @@ export function list(clientId: string): ClientDocument[] {
       'SELECT * FROM client_documents WHERE client_id = ? ORDER BY uploaded_at DESC'
     )
     .all(clientId) as ClientDocument[]
+}
+
+export function listAll(): ClientDocumentWithClient[] {
+  return getDb()
+    .prepare(
+      `SELECT d.*,
+         c.first_name AS client_first_name,
+         c.last_name AS client_last_name,
+         c.active AS client_active
+       FROM client_documents d
+       JOIN clients c ON c.id = d.client_id
+       ORDER BY d.uploaded_at DESC`
+    )
+    .all() as ClientDocumentWithClient[]
 }
 
 export function get(id: string): ClientDocument | undefined {

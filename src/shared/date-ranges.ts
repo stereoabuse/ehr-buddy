@@ -75,6 +75,33 @@ function quarterStartMonth(month: number): number {
   return Math.floor((month - 1) / 3) * 3 + 1
 }
 
+/** First and last ISO day of a calendar month (`month` is 1-12). */
+export function monthRange(year: number, month: number): DateRange {
+  return { start: isoDate(year, month, 1), end: isoDate(year, month, daysInMonth(year, month)) }
+}
+
+/**
+ * ISO dates for a Sunday-first month grid: whole weeks covering the month,
+ * padded with the trailing days of the previous month and leading days of
+ * the next. Length is always a multiple of 7.
+ */
+export function monthGridDays(year: number, month: number): string[] {
+  const leading = new Date(Date.UTC(year, month - 1, 1)).getUTCDay()
+  const cellCount = Math.ceil((leading + daysInMonth(year, month)) / 7) * 7
+  const days: string[] = []
+  for (let i = 0; i < cellCount; i += 1) {
+    const d = new Date(Date.UTC(year, month - 1, 1 - leading + i))
+    days.push(isoDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()))
+  }
+  return days
+}
+
+/** Step a {year, month} pair by `delta` months (`month` is 1-12). */
+export function addMonths(year: number, month: number, delta: number): { year: number; month: number } {
+  const index = year * 12 + (month - 1) + delta
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 }
+}
+
 function daysInMonth(year: number, month: number): number {
   // Day 0 of the following month (0-based) is the last day of `month`.
   return new Date(Date.UTC(year, month, 0)).getUTCDate()

@@ -8,6 +8,9 @@ import SessionEditor from './pages/SessionEditor'
 import Reports from './pages/Reports'
 import Activity from './pages/Activity'
 import Settings from './pages/Settings'
+import Billing from './pages/Billing'
+import Documents from './pages/Documents'
+import Calendar from './pages/Calendar'
 import { Sidebar } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
 import { ToastProvider } from './components/Toast'
@@ -45,6 +48,9 @@ const router = createHashRouter([
       { path: 'reports', element: <Reports /> },
       { path: 'clients/:clientId/sessions/new', element: <SessionEditor /> },
       { path: 'clients/:clientId/sessions/:sessionId', element: <SessionEditor /> },
+      { path: 'calendar', element: <Calendar /> },
+      { path: 'billing', element: <Billing /> },
+      { path: 'documents', element: <Documents /> },
       { path: 'activity', element: <Activity /> },
       { path: 'settings', element: <Settings /> }
     ]

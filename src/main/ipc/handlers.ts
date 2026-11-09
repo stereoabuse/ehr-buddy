@@ -32,6 +32,7 @@ import { generateSuperbill } from '../pdf/superbill'
 import { generateNotePdf } from '../pdf/note'
 import { generateTaxReport } from '../pdf/tax-report'
 import { generateCsvExport } from '../reports/csv-export'
+import { generateClientsCsv } from '../reports/clients-csv'
 import { runBackup, runFullArchive } from '../backup'
 import { audit, exportAuditCsv, lastBackupTimestamp, listAudit } from '../audit'
 import { isSessionOutputPath } from '../session-outputs'
@@ -123,6 +124,11 @@ const superbillSchema = z.object({
   clientId: z.string().min(1),
   fromDate: z.string().min(1),
   toDate: z.string().min(1)
+})
+
+const dateRangeSchema = z.object({
+  fromDate: dateSchema,
+  toDate: dateSchema
 })
 
 const noteExportSchema = z.object({
@@ -243,6 +249,13 @@ export function registerIpcHandlers(): void {
     return { ok: true }
   })
 
+  ipcMain.handle(IPC.CLIENTS_EXPORT_CSV, async () => {
+    const result = await generateClientsCsv()
+    if (!result) return null
+    audit('report_csv', 'report', null, { kind: 'clients', count: result.count, path: result.path })
+    return { path: result.path }
+  })
+
   ipcMain.handle(IPC.CLIENTS_PERMANENT_DELETE, (_e, input: unknown) => {
     const args = permanentDeleteClientSchema.parse(input)
     const client = clientsRepo.get(args.id)
@@ -294,6 +307,12 @@ export function registerIpcHandlers(): void {
   // ── sessions ────────────────────────────────────────────────
   ipcMain.handle(IPC.SESSIONS_TODAY, () => sessionsRepo.today())
   ipcMain.handle(IPC.SESSIONS_UNPAID, () => sessionsRepo.allUnpaid())
+  ipcMain.handle(IPC.SESSIONS_IN_RANGE, (_e, input: unknown) => {
+    const { fromDate, toDate } = dateRangeSchema.parse(input)
+    const rows = sessionsRepo.summaryInRange(fromDate, toDate)
+    audit('session_list_view', 'session', null, { scope: 'range', fromDate, toDate, count: rows.length })
+    return rows
+  })
   ipcMain.handle(IPC.SESSIONS_LIST_BY_CLIENT, (_e, arg: unknown) => {
     const clientId = idSchema.parse(arg)
     const rows = sessionsRepo.listByClient(clientId)
@@ -510,6 +529,16 @@ export function registerIpcHandlers(): void {
   })
 
   // ── documents ───────────────────────────────────────────────
+  ipcMain.handle(IPC.DOCUMENTS_LIST_ALL, () => {
+    const docs = documentsRepo.listAll()
+    audit('document_view', 'document', null, {
+      scope: 'all',
+      metadata_only: true,
+      count: docs.length
+    })
+    return docs
+  })
+
   ipcMain.handle(IPC.DOCUMENTS_LIST, (_e, arg: unknown) => {
     const clientId = idSchema.parse(arg)
     const docs = documentsRepo.list(clientId)

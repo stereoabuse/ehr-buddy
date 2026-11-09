@@ -95,7 +95,7 @@ EHR Buddy v1 does not have a login screen, password, or PIN. Anyone who can open
 
 EHR Buddy keeps an audit log to satisfy HIPAA §164.312(b) (audit controls). It records:
 
-- **Views:** opening a client chart, opening a session note, loading the client roster (which also happens on every Dashboard visit), loading a client's session list, and listing or opening uploaded documents
+- **Views:** opening a client chart, opening a session note, loading the client roster (which also happens on every Dashboard visit), loading a client's session list, loading the Calendar for a date range, and listing or opening uploaded documents
 - **Changes:** every create, update, archive, delete, sign, amendment, and paid/unpaid change
 - **Exports:** superbills, note PDFs, income reports, CSV exports, document downloads, backups, and full archives
 

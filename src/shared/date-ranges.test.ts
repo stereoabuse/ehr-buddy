@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DATE_RANGE_PRESETS, presetDateRange } from '@shared/date-ranges'
+import { DATE_RANGE_PRESETS, addMonths, monthGridDays, monthRange, presetDateRange } from '@shared/date-ranges'
 
 const NY = 'America/New_York'
 
@@ -136,5 +136,42 @@ describe('presetDateRange: NY-time boundary', () => {
       start: '2026-01-01',
       end: '2026-01-31'
     })
+  })
+})
+
+describe('monthRange', () => {
+  it('spans the whole month', () => {
+    expect(monthRange(2026, 11)).toEqual({ start: '2026-11-01', end: '2026-11-30' })
+  })
+
+  it('handles February in leap and non-leap years', () => {
+    expect(monthRange(2028, 2).end).toBe('2028-02-29')
+    expect(monthRange(2026, 2).end).toBe('2026-02-28')
+  })
+})
+
+describe('monthGridDays', () => {
+  it('starts on the Sunday on or before the 1st and covers whole weeks', () => {
+    // November 2026 starts on a Sunday and has 30 days -> 5 weeks.
+    const nov = monthGridDays(2026, 11)
+    expect(nov[0]).toBe('2026-11-01')
+    expect(nov.length).toBe(35)
+    expect(nov[nov.length - 1]).toBe('2026-12-05')
+  })
+
+  it('pads with the previous month when the 1st is mid-week', () => {
+    // January 2026 starts on a Thursday.
+    const jan = monthGridDays(2026, 1)
+    expect(jan.slice(0, 5)).toEqual(['2025-12-28', '2025-12-29', '2025-12-30', '2025-12-31', '2026-01-01'])
+    expect(jan.length % 7).toBe(0)
+    expect(jan).toContain('2026-01-31')
+  })
+})
+
+describe('addMonths', () => {
+  it('rolls across year boundaries in both directions', () => {
+    expect(addMonths(2026, 12, 1)).toEqual({ year: 2027, month: 1 })
+    expect(addMonths(2026, 1, -1)).toEqual({ year: 2025, month: 12 })
+    expect(addMonths(2026, 6, 0)).toEqual({ year: 2026, month: 6 })
   })
 })
