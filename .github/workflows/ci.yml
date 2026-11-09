@@ -11,7 +11,7 @@ env:
 
 jobs:
   check:
-    name: Typecheck & test
+    name: Typecheck, lint & test
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -31,6 +31,9 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
 
       - name: Run tests
         run: npm test

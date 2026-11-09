@@ -4,6 +4,7 @@ import { createWriteStream } from 'fs'
 import { join } from 'path'
 import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
+import type { Clinician, SessionWithClient } from '../../shared/types'
 import { practiceUsDateString } from '../../shared/date'
 import { cptBillingLabel } from '../../shared/cpt-codes'
 import { recordSessionOutput } from '../session-outputs'
@@ -37,8 +38,8 @@ export async function generateTaxReport(args: ReportArgs): Promise<string | null
 
 function writePdf(
   filePath: string,
-  clinician: any,
-  sessions: any[],
+  clinician: Clinician,
+  sessions: SessionWithClient[],
   args: ReportArgs
 ): Promise<void> {
   return new Promise((resolve, reject) => {

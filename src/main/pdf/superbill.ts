@@ -226,7 +226,6 @@ function writePdf(
   })
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function drawCell(doc: any, text: string, x: number, y: number, w: number): void {
+function drawCell(doc: PDFKit.PDFDocument, text: string, x: number, y: number, w: number): void {
   doc.text(text, x + 2, y, { width: w - 4 })
 }

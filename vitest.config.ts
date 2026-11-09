@@ -1,9 +1,10 @@
 import { resolve } from 'path'
 import { defineConfig } from 'vitest/config'
 
-// Unit tests target the pure, environment-neutral modules (shared logic and
-// renderer libs). Electron/native (better-sqlite3) modules are intentionally
-// out of scope here — see the security review notes on the native ABI.
+// Most tests target pure, environment-neutral modules (shared logic and
+// renderer libs) and run in Node. Component tests (*.test.tsx) opt into jsdom
+// per file and stub window.api, so they never touch Electron or the native
+// better-sqlite3 module.
 export default defineConfig({
   resolve: {
     alias: {
@@ -13,7 +14,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     clearMocks: true
   }
 })
