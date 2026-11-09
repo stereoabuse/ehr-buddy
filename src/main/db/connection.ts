@@ -6,12 +6,26 @@ import { runMigrations } from './migrations'
 
 let db: Database.Database | null = null
 
+/**
+ * Create `dir` if needed and restrict it to the owner (POSIX only). mkdir's
+ * mode only applies to a directory it creates, and Electron creates userData
+ * before we ever run, so the explicit chmod is what actually takes effect.
+ */
+export function ensureOwnerOnlyDir(dir: string): void {
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  if (process.platform === 'win32') return
+  try {
+    chmodSync(dir, 0o700)
+  } catch (err) {
+    console.error(`[db] chmod failed for ${dir}:`, err)
+  }
+}
+
 export function getDb(): Database.Database {
   if (db) return db
 
   const userData = app.getPath('userData')
-  // Restrict the PHI data directory to the owner (POSIX only).
-  mkdirSync(userData, { recursive: true, mode: 0o700 })
+  ensureOwnerOnlyDir(userData)
   const dbPath = join(userData, 'ehrbuddy.db')
 
   console.log(`[db] opening ${dbPath}`)

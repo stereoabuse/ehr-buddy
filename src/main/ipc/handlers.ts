@@ -3,7 +3,6 @@ import {
   chmodSync,
   closeSync,
   copyFileSync,
-  mkdirSync,
   openSync,
   readSync,
   statSync,
@@ -24,6 +23,7 @@ import {
 } from '../../shared/validation'
 import { headMatchesExtension } from '../../shared/file-magic'
 import { noteHasContent } from '../../shared/structured-note'
+import { ensureOwnerOnlyDir } from '../db/connection'
 import * as clientsRepo from '../db/repos/clients'
 import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
@@ -84,7 +84,9 @@ const sessionUpsertSchema = z.object({
   start_time: timeSchema,
   end_time: timeSchema,
   cpt_code: cptCodeSchema,
-  icd10_codes: icd10CodesSchema,
+  // Allowlist-checked in the handler only when the value changes, so a code
+  // retired by a later ICD-10 refresh doesn't block saving an existing session.
+  icd10_codes: z.string().nullable().optional(),
   fee_cents: z.number().int().min(0),
   paid: z.number().int().min(0).max(1).optional(),
   note_format: z.enum(['DAP', 'FREE', 'STRUCTURED']).optional(),
@@ -213,8 +215,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.APP_DATA_DIR, () => app.getPath('userData'))
 
   // ── clients ─────────────────────────────────────────────────
-  ipcMain.handle(IPC.CLIENTS_LIST, () => clientsRepo.list())
-
   ipcMain.handle(IPC.CLIENTS_ROSTER, () => {
     const rows = clientsRepo.roster(practiceDateString())
     audit('roster_view', 'client', null, { count: rows.length })
@@ -253,26 +253,33 @@ export function registerIpcHandlers(): void {
       throw new Error(`Confirmation must exactly match "${fullName}".`)
     }
 
+    // Delete the rows first (atomically), then the files. A file that can't be
+    // removed is reported back rather than leaving rows that point at
+    // already-deleted files.
     const docs = documentsRepo.list(args.id)
+    const summary = clientsRepo.permanentDelete(args.id)
+
+    const filesNotRemoved: string[] = []
     for (const doc of docs) {
       try {
         unlinkSync(documentPath(doc.stored_filename))
       } catch (err: unknown) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-          throw new Error(`Could not remove document file "${doc.original_filename ?? doc.stored_filename}".`)
+          console.error(`[documents] unlink failed for ${doc.stored_filename}:`, err)
+          filesNotRemoved.push(doc.stored_filename)
         }
       }
     }
 
-    const summary = clientsRepo.permanentDelete(args.id)
     audit('client_permanent_delete', 'client', args.id, {
       name: fullName,
       sessions: summary.sessions,
       amendments: summary.amendments,
       documents: summary.documents,
-      treatment_plans: summary.treatmentPlans
+      treatment_plans: summary.treatmentPlans,
+      ...(filesNotRemoved.length > 0 ? { files_not_removed: filesNotRemoved } : {})
     })
-    return { ok: true }
+    return { ok: true, files_not_removed: filesNotRemoved, documents_dir: documentsDir() }
   })
 
   // ── clinician ───────────────────────────────────────────────
@@ -287,9 +294,12 @@ export function registerIpcHandlers(): void {
   // ── sessions ────────────────────────────────────────────────
   ipcMain.handle(IPC.SESSIONS_TODAY, () => sessionsRepo.today())
   ipcMain.handle(IPC.SESSIONS_UNPAID, () => sessionsRepo.allUnpaid())
-  ipcMain.handle(IPC.SESSIONS_LIST_BY_CLIENT, (_e, arg: unknown) =>
-    sessionsRepo.listByClient(idSchema.parse(arg))
-  )
+  ipcMain.handle(IPC.SESSIONS_LIST_BY_CLIENT, (_e, arg: unknown) => {
+    const clientId = idSchema.parse(arg)
+    const rows = sessionsRepo.listByClient(clientId)
+    audit('session_list_view', 'session', null, { client_id: clientId, count: rows.length })
+    return rows
+  })
 
   ipcMain.handle(IPC.SESSIONS_GET, (_e, arg: unknown) => {
     const id = idSchema.parse(arg)
@@ -327,6 +337,10 @@ export function registerIpcHandlers(): void {
         paid: session.paid
       })
       return session
+    }
+
+    if (!existing || (parsed.icd10_codes ?? null) !== existing.icd10_codes) {
+      icd10CodesSchema.parse(parsed.icd10_codes)
     }
 
     const isUpdate = !!parsed.id && sessionsRepo.exists(parsed.id)
@@ -537,7 +551,7 @@ export function registerIpcHandlers(): void {
     const id = randomUUID()
     const stored = `${id}${ext}`
     // H4: restrict the PHI documents dir and stored file to the owner (POSIX only).
-    mkdirSync(documentsDir(), { recursive: true, mode: 0o700 })
+    ensureOwnerOnlyDir(documentsDir())
     copyFileSync(sourcePath, documentPath(stored))
     if (process.platform !== 'win32') {
       try {

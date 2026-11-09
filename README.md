@@ -15,8 +15,8 @@
 - **Clinician profile** -- credentials, NPI, tax ID, and default fee schedule
 - **Billing** -- inline paid toggle on the Sessions tab and per-client Billing tab with unpaid balance and bulk "mark all paid"
 - **Reports** -- superbill PDFs, date-ranged income summary PDF (per-client totals + CPT breakdown), and session-detail CSV
-- **Audit log** -- append-only record of every read, edit, and export of patient data (HIPAA §164.312(b)), exportable to CSV
-- **Backups** -- copy the SQLite database, or export a ZIP archive of database + documents + CSVs + manifest
+- **Audit log** -- append-only record of chart and note views, every edit, and every export of patient data (HIPAA §164.312(b)), exportable to CSV. See [SECURITY.md](SECURITY.md#7-audit-log) for exactly what is logged
+- **Backups** -- snapshot the SQLite database, or export a ZIP archive of database + documents + CSVs + manifest
 
 No cloud sync, authentication, payments, claims, or third-party services so EHR Buddy never makes a network request.
 

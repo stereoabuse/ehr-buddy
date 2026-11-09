@@ -10,7 +10,6 @@ const api: Api = {
     setUnsavedChanges: (dirty) => ipcRenderer.send(IPC.APP_SET_UNSAVED_CHANGES, Boolean(dirty))
   },
   clients: {
-    list: () => ipcRenderer.invoke(IPC.CLIENTS_LIST),
     roster: () => ipcRenderer.invoke(IPC.CLIENTS_ROSTER),
     get: (id) => ipcRenderer.invoke(IPC.CLIENTS_GET, id),
     upsert: (input) => ipcRenderer.invoke(IPC.CLIENTS_UPSERT, input),

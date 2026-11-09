@@ -7,6 +7,7 @@ import * as clientsRepo from '../db/repos/clients'
 import * as sessionsRepo from '../db/repos/sessions'
 import type { Session, SessionAmendment, Client, Clinician } from '../../shared/types'
 import { CPT_CODES } from '../../shared/cpt-codes'
+import { safeFilenamePart } from '../../shared/filename'
 import {
   parseStructuredNote,
   OBSERVATION_LABELS,
@@ -46,7 +47,7 @@ export async function generateNotePdf(args: NotePdfArgs): Promise<string | null>
 
   const amendments = sessionsRepo.listAmendments(session.id)
 
-  const defaultName = `note-${client.last_name}-${session.session_date}.pdf`
+  const defaultName = `note-${safeFilenamePart(client.last_name)}-${session.session_date}.pdf`
   const result = await dialog.showSaveDialog({
     title: 'Export Progress Note',
     defaultPath: join(app.getPath('documents'), defaultName),

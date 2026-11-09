@@ -48,7 +48,7 @@ export default function Activity() {
           Activity log
         </h2>
         <p className="mt-1 text-base text-muted">
-          Tracks every read, edit, and export of patient data. Required by HIPAA §164.312(b).
+          Records chart and note views, every edit, and every export of patient data. Required by HIPAA §164.312(b).
           The log is append-only — entries cannot be modified or deleted.
         </p>
       </div>

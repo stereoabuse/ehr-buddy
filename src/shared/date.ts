@@ -1,29 +1,36 @@
-export const PRACTICE_TIME_ZONE = 'America/New_York'
+/**
+ * The zone that defines the practice's calendar day: the machine's own zone,
+ * resolved on each call so a laptop that changes zones follows along. Every
+ * helper below takes an explicit `timeZone` override, which tests use to pin
+ * results independently of the machine running them.
+ */
+export function practiceTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+}
 
-export function practiceDateString(date = new Date()): string {
-  const parts = datePartsInPracticeTime(date)
+export function practiceDateString(date = new Date(), timeZone = practiceTimeZone()): string {
+  const parts = datePartsInPracticeTime(date, timeZone)
   return `${parts.year}-${parts.month}-${parts.day}`
 }
 
-export function practiceMonthStartString(date = new Date()): string {
-  const parts = datePartsInPracticeTime(date)
+export function practiceMonthStartString(date = new Date(), timeZone = practiceTimeZone()): string {
+  const parts = datePartsInPracticeTime(date, timeZone)
   return `${parts.year}-${parts.month}-01`
 }
 
-export function practiceYearStartString(date = new Date()): string {
-  const parts = datePartsInPracticeTime(date)
+export function practiceYearStartString(date = new Date(), timeZone = practiceTimeZone()): string {
+  const parts = datePartsInPracticeTime(date, timeZone)
   return `${parts.year}-01-01`
 }
 
-export function practiceUsDateString(date = new Date()): string {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: PRACTICE_TIME_ZONE
-  }).format(date)
+export function practiceUsDateString(date = new Date(), timeZone = practiceTimeZone()): string {
+  return new Intl.DateTimeFormat('en-US', { timeZone }).format(date)
 }
 
 export function practiceDayBoundaryIso(
   dateStr: string,
-  boundary: 'start' | 'end'
+  boundary: 'start' | 'end',
+  timeZone = practiceTimeZone()
 ): string {
   const [year, month, day] = dateStr.split('-').map(Number)
   // Reject falsy/zero/NaN and out-of-range components so an invalid string like
@@ -41,26 +48,32 @@ export function practiceDayBoundaryIso(
     return dateStr
   }
 
-  const utcMs = zonedTimeToUtcMs({
-    year,
-    month,
-    day,
-    hour: boundary === 'start' ? 0 : 23,
-    minute: boundary === 'start' ? 0 : 59,
-    second: boundary === 'start' ? 0 : 59,
-    millisecond: boundary === 'start' ? 0 : 999
-  })
+  const utcMs = zonedTimeToUtcMs(
+    {
+      year,
+      month,
+      day,
+      hour: boundary === 'start' ? 0 : 23,
+      minute: boundary === 'start' ? 0 : 59,
+      second: boundary === 'start' ? 0 : 59,
+      millisecond: boundary === 'start' ? 0 : 999
+    },
+    timeZone
+  )
 
   return new Date(utcMs).toISOString()
 }
 
-function datePartsInPracticeTime(date: Date): {
+function datePartsInPracticeTime(
+  date: Date,
+  timeZone: string
+): {
   year: string
   month: string
   day: string
 } {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: PRACTICE_TIME_ZONE,
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -73,15 +86,18 @@ function datePartsInPracticeTime(date: Date): {
   }
 }
 
-function zonedTimeToUtcMs(input: {
-  year: number
-  month: number
-  day: number
-  hour: number
-  minute: number
-  second: number
-  millisecond: number
-}): number {
+function zonedTimeToUtcMs(
+  input: {
+    year: number
+    month: number
+    day: number
+    hour: number
+    minute: number
+    second: number
+    millisecond: number
+  },
+  timeZone: string
+): number {
   const localAsUtc = Date.UTC(
     input.year,
     input.month - 1,
@@ -94,16 +110,16 @@ function zonedTimeToUtcMs(input: {
   let utcMs = localAsUtc
 
   for (let i = 0; i < 2; i += 1) {
-    utcMs = localAsUtc - practiceOffsetMsAt(utcMs)
+    utcMs = localAsUtc - practiceOffsetMsAt(utcMs, timeZone)
   }
 
   return utcMs
 }
 
-function practiceOffsetMsAt(utcMs: number): number {
+function practiceOffsetMsAt(utcMs: number, timeZone: string): number {
   const date = new Date(utcMs)
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: PRACTICE_TIME_ZONE,
+    timeZone,
     hourCycle: 'h23',
     year: 'numeric',
     month: '2-digit',

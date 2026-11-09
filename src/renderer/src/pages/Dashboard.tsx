@@ -10,7 +10,6 @@ import { avatarColorFor } from '../lib/avatar'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const clients = useQuery({ queryKey: ['clients'], queryFn: () => window.api.clients.list() })
   const todaySessions = useQuery({ queryKey: ['sessions', 'today'], queryFn: () => window.api.sessions.today() })
   const unpaidSessions = useQuery({ queryKey: ['sessions', 'unpaid'], queryFn: () => window.api.sessions.unpaid() })
   const roster = useQuery({ queryKey: ['clients', 'roster'], queryFn: () => window.api.clients.roster() })
@@ -18,16 +17,14 @@ export default function Dashboard() {
 
   const today = todaySessions.data ?? []
   const unpaid = unpaidSessions.data ?? []
-  const allClients = clients.data ?? []
   const rosterRows = roster.data ?? []
 
-  const activeCount = allClients.filter((c) => c.active === 1).length
+  const activeCount = rosterRows.filter((c) => c.active === 1).length
   const unpaidTotal = unpaid.reduce((s, x) => s + x.fee_cents, 0)
   const unpaidClientIds = new Set(unpaid.map((x) => x.client_id))
   const unsignedTotal = rosterRows.reduce((s, r) => s + r.unsigned_count, 0)
 
   const queryErrors: { label: string; error: unknown }[] = []
-  if (clients.isError) queryErrors.push({ label: 'clients', error: clients.error })
   if (todaySessions.isError) queryErrors.push({ label: "today's sessions", error: todaySessions.error })
   if (unpaidSessions.isError) queryErrors.push({ label: 'unpaid sessions', error: unpaidSessions.error })
   if (roster.isError) queryErrors.push({ label: 'client roster', error: roster.error })
@@ -116,10 +113,10 @@ export default function Dashboard() {
         <KpiCard
           label="Active clients"
           value={String(activeCount)}
-          sub={`${allClients.length} total`}
+          sub={`${rosterRows.length} total`}
           tone="ink"
-          isPending={clients.isPending}
-          isError={clients.isError}
+          isPending={roster.isPending}
+          isError={roster.isError}
         />
         <KpiCard
           label="Outstanding"

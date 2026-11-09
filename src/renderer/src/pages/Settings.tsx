@@ -131,7 +131,7 @@ export default function Settings() {
                 Activity log
               </Link>
               <p className="mt-1 text-sm text-muted">
-                Append-only record of every PHI access and change. Required by HIPAA §164.312(b).
+                Append-only record of chart views, edits, and exports. Required by HIPAA §164.312(b).
               </p>
             </div>
             <Link

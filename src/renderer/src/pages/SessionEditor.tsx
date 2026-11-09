@@ -43,8 +43,11 @@ function calcDuration(start: string, end: string): number | null {
   return minutes > 0 ? minutes : null
 }
 
+// Compares the fee by parsed cents, not the raw input string, so "150" and
+// "150.00" snapshot identically and a post-save refetch isn't mistaken for
+// new server data.
 function sessionSnapshot(form: SessionInput, feeDollarStr: string): string {
-  return JSON.stringify({ ...form, feeDollarStr })
+  return JSON.stringify({ ...form, fee: parseFeeDollars(feeDollarStr) })
 }
 
 function makeInitialForm(clientId: string | undefined): SessionInput {

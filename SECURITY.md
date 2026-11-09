@@ -93,7 +93,15 @@ EHR Buddy v1 does not have a login screen, password, or PIN. Anyone who can open
 
 ## 7. Audit log
 
-EHR Buddy records every read, edit, and export of patient data to satisfy HIPAA §164.312(b) (audit controls). The log captures:
+EHR Buddy keeps an audit log to satisfy HIPAA §164.312(b) (audit controls). It records:
+
+- **Views:** opening a client chart, opening a session note, loading the client roster (which also happens on every Dashboard visit), loading a client's session list, and listing or opening uploaded documents
+- **Changes:** every create, update, archive, delete, sign, amendment, and paid/unpaid change
+- **Exports:** superbills, note PDFs, income reports, CSV exports, document downloads, backups, and full archives
+
+Two reads are deliberately not logged on their own. The Dashboard's today-schedule and unpaid lists (client names, dates, codes, and fees, but never note text) load alongside a logged roster view. A note's amendments load alongside a logged note view. Your own clinician profile is not patient data and is not logged when read.
+
+Each entry captures:
 
 - Timestamp (ISO 8601)
 - OS user account that ran the app

@@ -23,11 +23,6 @@ export interface Client {
   updated_at: string
 }
 
-/** Extended with computed field from list query */
-export interface ClientListItem extends Client {
-  last_session_date: string | null
-}
-
 /** One row per client for the Clients list. Includes computed aggregates. */
 export interface RosterRow {
   id: string
@@ -143,6 +138,10 @@ export interface SessionWithClient extends Session {
   client_last_name: string
 }
 
+/** List-view row sent to the renderer: no note body, so dashboards and
+ *  calendars never carry clinical text they don't display. */
+export type SessionListItem = Omit<SessionWithClient, 'note_body'>
+
 export interface SessionInput {
   id?: string
   client_id: string
@@ -198,6 +197,7 @@ export type AuditAction =
   | 'client_permanent_delete'
   | 'roster_view'
   | 'session_view'
+  | 'session_list_view'
   | 'session_create'
   | 'session_update'
   | 'session_delete'

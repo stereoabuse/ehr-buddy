@@ -7,17 +7,9 @@ import * as clientsRepo from '../db/repos/clients'
 import * as sessionsRepo from '../db/repos/sessions'
 import type { Session, Client, Clinician } from '../../shared/types'
 import { practiceUsDateString } from '../../shared/date'
+import { cptBillingLabel } from '../../shared/cpt-codes'
+import { safeFilenamePart } from '../../shared/filename'
 import { recordSessionOutput } from '../session-outputs'
-
-const CPT_LABELS: Record<string, string> = {
-  '90791': 'Psychiatric Diagnostic Evaluation',
-  '90832': 'Individual Psychotherapy (30 min)',
-  '90834': 'Individual Psychotherapy (45 min)',
-  '90837': 'Individual Psychotherapy (60 min)',
-  '90846': 'Family Therapy without Patient (50 min)',
-  '90847': 'Family Therapy with Patient (50 min)',
-  '90853': 'Group Psychotherapy'
-}
 
 interface SuperbillArgs {
   clientId: string
@@ -38,7 +30,7 @@ export async function generateSuperbill(args: SuperbillArgs): Promise<string | n
 
   if (sessions.length === 0) throw new Error('No sessions in the selected date range')
 
-  const defaultName = `superbill-${client.last_name}-${args.fromDate}-to-${args.toDate}.pdf`
+  const defaultName = `superbill-${safeFilenamePart(client.last_name)}-${args.fromDate}-to-${args.toDate}.pdf`
   const result = await dialog.showSaveDialog({
     title: 'Save Superbill PDF',
     defaultPath: join(app.getPath('documents'), defaultName),
@@ -179,7 +171,7 @@ function writePdf(
         y = 50
       }
 
-      const cptLabel = CPT_LABELS[s.cpt_code] ?? s.cpt_code
+      const cptLabel = cptBillingLabel(s.cpt_code)
       const desc = `${cptLabel} (${s.cpt_code}) — $${(s.fee_cents / 100).toFixed(2)}`
       const fee = `$${(s.fee_cents / 100).toFixed(2)}`
       const paid = s.paid === 1 ? fee : '$0.00'

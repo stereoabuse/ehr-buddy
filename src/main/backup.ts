@@ -1,16 +1,17 @@
 import { app, dialog } from 'electron'
-import { copyFileSync, createWriteStream, existsSync, chmodSync } from 'fs'
+import { createWriteStream, existsSync, chmodSync, rmSync } from 'fs'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import archiver from 'archiver'
-import { getDb, dbPath } from './db/connection'
+import { getDb } from './db/connection'
 import { csvEscape } from '../shared/csv'
 import { practiceDateString } from '../shared/date'
 import { recordSessionOutput } from './session-outputs'
 
+// Backups use SQLite's online backup API rather than copying the file, so
+// writes that land while the save dialog is open (or WAL frames not yet
+// checkpointed) can't produce a stale or torn copy.
 export async function runBackup(): Promise<string | null> {
-  const db = getDb()
-  db.pragma('wal_checkpoint(TRUNCATE)')
-
   const defaultName = `ehrbuddy-backup-${practiceDateString()}.db`
 
   const result = await dialog.showSaveDialog({
@@ -21,7 +22,7 @@ export async function runBackup(): Promise<string | null> {
 
   if (result.canceled || !result.filePath) return null
 
-  copyFileSync(dbPath(), result.filePath)
+  await getDb().backup(result.filePath)
   // Restrict the PHI backup to the owner (POSIX only).
   if (process.platform !== 'win32') chmodSync(result.filePath, 0o600)
   console.log(`[backup] saved to ${result.filePath}`)
@@ -30,9 +31,6 @@ export async function runBackup(): Promise<string | null> {
 }
 
 export async function runFullArchive(): Promise<string | null> {
-  const db = getDb()
-  db.pragma('wal_checkpoint(TRUNCATE)')
-
   const defaultName = `ehrbuddy-archive-${practiceDateString()}.zip`
   const result = await dialog.showSaveDialog({
     title: 'Save Full Data Archive',
@@ -42,8 +40,25 @@ export async function runFullArchive(): Promise<string | null> {
 
   if (result.canceled || !result.filePath) return null
 
+  // Snapshot into the owner-only userData dir rather than the shared system temp.
+  const snapshotPath = join(app.getPath('userData'), `archive-snapshot-${randomUUID()}.db`)
+  try {
+    await getDb().backup(snapshotPath)
+    await writeArchive(result.filePath, snapshotPath)
+  } finally {
+    rmSync(snapshotPath, { force: true })
+  }
+
+  // Restrict the PHI archive to the owner (POSIX only).
+  if (process.platform !== 'win32') chmodSync(result.filePath, 0o600)
+  console.log(`[archive] saved to ${result.filePath}`)
+  recordSessionOutput(result.filePath)
+  return result.filePath
+}
+
+async function writeArchive(zipPath: string, snapshotPath: string): Promise<void> {
   const archive = archiver('zip', { zlib: { level: 9 } })
-  const output = createWriteStream(result.filePath)
+  const output = createWriteStream(zipPath)
   const completed = new Promise<void>((resolve, reject) => {
     output.on('close', resolve)
     output.on('error', reject)
@@ -51,7 +66,7 @@ export async function runFullArchive(): Promise<string | null> {
   })
 
   archive.pipe(output)
-  archive.file(dbPath(), { name: 'ehrbuddy.db' })
+  archive.file(snapshotPath, { name: 'ehrbuddy.db' })
 
   const documentsPath = join(app.getPath('userData'), 'documents')
   if (existsSync(documentsPath)) {
@@ -67,12 +82,6 @@ export async function runFullArchive(): Promise<string | null> {
 
   await archive.finalize()
   await completed
-
-  // Restrict the PHI archive to the owner (POSIX only).
-  if (process.platform !== 'win32') chmodSync(result.filePath, 0o600)
-  console.log(`[archive] saved to ${result.filePath}`)
-  recordSessionOutput(result.filePath)
-  return result.filePath
 }
 
 function buildManifest(): Record<string, unknown> {

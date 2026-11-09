@@ -1,5 +1,4 @@
 /** @type {import('tailwindcss').Config} */
-// Tokens mirror design-handoff/tailwind.tokens.js — keep in sync.
 export default {
   content: ['./src/renderer/index.html', './src/renderer/src/**/*.{ts,tsx}'],
   theme: {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { CPT_CODES, type CptCode } from '@shared/cpt-codes'
+import { CPT_CODES, cptBillingLabel, type CptCode } from '@shared/cpt-codes'
 import { ICD10_CODES, type Icd10Code } from '@shared/icd10-codes'
 
 describe('CPT_CODES data integrity', () => {
@@ -48,7 +48,7 @@ describe('CPT_CODES data integrity', () => {
   })
 
   it('entries have only the expected keys', () => {
-    const expected = ['code', 'description', 'defaultMinutes'].sort()
+    const expected = ['code', 'description', 'billingLabel', 'defaultMinutes'].sort()
     for (const entry of CPT_CODES) {
       expect(Object.keys(entry).sort()).toEqual(expected)
     }
@@ -59,6 +59,22 @@ describe('CPT_CODES data integrity', () => {
     expect(match).toBeDefined()
     expect(match?.description).toContain('Psychiatric diagnostic evaluation')
     expect(match?.defaultMinutes).toBe(60)
+  })
+
+  it('every entry has a non-empty billing label', () => {
+    for (const entry of CPT_CODES) {
+      expect(entry.billingLabel.trim().length).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('cptBillingLabel', () => {
+  it('returns the billing wording for a known code', () => {
+    expect(cptBillingLabel('90837')).toBe('Individual Psychotherapy (60 min)')
+  })
+
+  it('falls back to the bare code for an unknown one', () => {
+    expect(cptBillingLabel('99999')).toBe('99999')
   })
 })
 

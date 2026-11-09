@@ -4,7 +4,6 @@ import type {
   Client,
   ClientDocument,
   ClientInput,
-  ClientListItem,
   Clinician,
   ClinicianInput,
   DocumentUploadInput,
@@ -13,7 +12,7 @@ import type {
   Session,
   SessionAmendment,
   SessionInput,
-  SessionWithClient
+  SessionListItem
 } from './types'
 
 export interface PingResult {
@@ -54,6 +53,13 @@ export interface PermanentDeleteClientArgs {
   confirmation: string
 }
 
+export interface PermanentDeleteClientResult {
+  ok: boolean
+  /** Stored filenames whose document file could not be removed from disk. */
+  files_not_removed?: string[]
+  documents_dir?: string
+}
+
 export interface Api {
   ping: () => Promise<PingResult>
   app: {
@@ -62,12 +68,11 @@ export interface Api {
     setUnsavedChanges: (dirty: boolean) => void
   }
   clients: {
-    list: () => Promise<ClientListItem[]>
     roster: () => Promise<RosterRow[]>
     get: (id: string) => Promise<Client | null>
     upsert: (input: ClientInput) => Promise<Client>
     delete: (id: string) => Promise<{ ok: boolean }>
-    permanentDelete: (args: PermanentDeleteClientArgs) => Promise<{ ok: boolean }>
+    permanentDelete: (args: PermanentDeleteClientArgs) => Promise<PermanentDeleteClientResult>
   }
   clinician: {
     get: () => Promise<Clinician | null>
@@ -78,8 +83,8 @@ export interface Api {
     get: (id: string) => Promise<Session | null>
     upsert: (input: SessionInput) => Promise<Session>
     delete: (id: string) => Promise<{ ok: boolean }>
-    today: () => Promise<SessionWithClient[]>
-    unpaid: () => Promise<SessionWithClient[]>
+    today: () => Promise<SessionListItem[]>
+    unpaid: () => Promise<SessionListItem[]>
     setPaid: (id: string, paid: 0 | 1) => Promise<Session>
     sign: (args: SignSessionArgs) => Promise<Session>
     addAmendment: (args: AddAmendmentArgs) => Promise<SessionAmendment>

@@ -5,17 +5,8 @@ import { join } from 'path'
 import * as clinicianRepo from '../db/repos/clinician'
 import * as sessionsRepo from '../db/repos/sessions'
 import { practiceUsDateString } from '../../shared/date'
+import { cptBillingLabel } from '../../shared/cpt-codes'
 import { recordSessionOutput } from '../session-outputs'
-
-const CPT_LABELS: Record<string, string> = {
-  '90791': 'Psychiatric Diagnostic Evaluation',
-  '90832': 'Individual Psychotherapy (30 min)',
-  '90834': 'Individual Psychotherapy (45 min)',
-  '90837': 'Individual Psychotherapy (60 min)',
-  '90846': 'Family Therapy without Patient (50 min)',
-  '90847': 'Family Therapy with Patient (50 min)',
-  '90853': 'Group Psychotherapy'
-}
 
 interface ReportArgs {
   fromDate: string
@@ -193,7 +184,7 @@ function writePdf(
     doc.font('Helvetica').fontSize(8)
     for (const [code, data] of byCpt) {
       doc.text(code, cptCols[0].x + 2, y, { width: cptCols[0].w - 4 })
-      doc.text(CPT_LABELS[code] ?? code, cptCols[1].x + 2, y, { width: cptCols[1].w - 4 })
+      doc.text(cptBillingLabel(code), cptCols[1].x + 2, y, { width: cptCols[1].w - 4 })
       doc.text(String(data.count), cptCols[2].x + 2, y, { width: cptCols[2].w - 4 })
       doc.text(`$${(data.revenue / 100).toFixed(2)}`, cptCols[3].x + 2, y, { width: cptCols[3].w - 4 })
       y += 14

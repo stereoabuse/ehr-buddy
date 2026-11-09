@@ -890,6 +890,7 @@ function InfoForm({
   const isNew = !clientId
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const toast = useToast()
 
   const clientQuery = useQuery({
     queryKey: ['clients', clientId],
@@ -957,12 +958,19 @@ function InfoForm({
   const permanentDel = useMutation({
     mutationFn: (args: { id: string; confirmation: string }) =>
       window.api.clients.permanentDelete(args),
-    onSuccess: () => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['clients'] })
       qc.invalidateQueries({ queryKey: ['sessions'] })
       qc.invalidateQueries({ queryKey: ['documents'] })
       qc.removeQueries({ queryKey: ['clients', clientId] })
       setPermanentDeleteOpen(false)
+      const leftover = result.files_not_removed ?? []
+      if (leftover.length > 0) {
+        toast.showError(
+          `Client deleted, but ${leftover.length} document file${leftover.length === 1 ? '' : 's'} could not be removed. ` +
+            `Delete ${leftover.join(', ')} manually from ${result.documents_dir ?? 'the documents folder'}.`
+        )
+      }
       bypass(() => navigate('/clients', { replace: true }))
     }
   })

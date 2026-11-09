@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '../connection'
-import type { Client, ClientInput, ClientListItem, RosterRow } from '../../../shared/types'
+import type { Client, ClientInput, RosterRow } from '../../../shared/types'
 
 const NULLABLE_FIELDS = [
   'dob',
@@ -18,18 +18,6 @@ function normalize(input: ClientInput): Record<string, unknown> {
     out[f] = v == null || v === '' ? null : v
   }
   return out
-}
-
-export function list(): ClientListItem[] {
-  return getDb()
-    .prepare(
-      `SELECT c.*,
-        (SELECT MAX(s.session_date) FROM sessions s WHERE s.client_id = c.id) AS last_session_date
-       FROM clients c
-       WHERE c.active = 1
-       ORDER BY c.last_name COLLATE NOCASE, c.first_name COLLATE NOCASE`
-    )
-    .all() as ClientListItem[]
 }
 
 export function get(id: string): Client | undefined {
@@ -133,6 +121,10 @@ export interface PermanentDeleteSummary {
 
 export function permanentDelete(id: string): PermanentDeleteSummary {
   const db = getDb()
+  return db.transaction(() => permanentDeleteInTx(db, id))()
+}
+
+function permanentDeleteInTx(db: ReturnType<typeof getDb>, id: string): PermanentDeleteSummary {
   const summary: PermanentDeleteSummary = {
     sessions: (db.prepare('SELECT COUNT(*) AS count FROM sessions WHERE client_id = ?').get(id) as { count: number }).count,
     amendments: (db.prepare(

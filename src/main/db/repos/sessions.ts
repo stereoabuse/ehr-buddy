@@ -5,6 +5,7 @@ import type {
   Session,
   SessionAmendment,
   SessionInput,
+  SessionListItem,
   SessionWithClient
 } from '../../../shared/types'
 import { practiceDateString } from '../../../shared/date'
@@ -170,18 +171,27 @@ export function listAmendments(sessionId: string): SessionAmendment[] {
     .all(sessionId) as SessionAmendment[]
 }
 
-export function today(): SessionWithClient[] {
+// Every session column except note_body, for list views sent to the renderer.
+const LIST_COLUMNS = `
+  s.id, s.client_id, s.session_date, s.start_time, s.end_time,
+  s.cpt_code, s.icd10_codes, s.fee_cents, s.paid, s.note_format,
+  s.signed_at, s.signed_by_name, s.signed_by_credentials,
+  s.created_at, s.updated_at,
+  c.first_name AS client_first_name, c.last_name AS client_last_name`
+
+export function today(): SessionListItem[] {
   const todayStr = practiceDateString()
   return getDb()
     .prepare(
-      `SELECT s.*, c.first_name AS client_first_name, c.last_name AS client_last_name
+      `SELECT ${LIST_COLUMNS}
        FROM sessions s JOIN clients c ON s.client_id = c.id
        WHERE s.session_date = ? AND c.active = 1
        ORDER BY s.start_time`
     )
-    .all(todayStr) as SessionWithClient[]
+    .all(todayStr) as SessionListItem[]
 }
 
+/** Full rows (including note_body) for main-process reports only. */
 export function allInRange(
   fromDate: string,
   toDate: string,
@@ -198,14 +208,13 @@ export function allInRange(
     .all(fromDate, toDate) as SessionWithClient[]
 }
 
-export function allUnpaid(): SessionWithClient[] {
+export function allUnpaid(): SessionListItem[] {
   return getDb()
     .prepare(
-      `SELECT s.*, c.first_name AS client_first_name, c.last_name AS client_last_name
+      `SELECT ${LIST_COLUMNS}
        FROM sessions s JOIN clients c ON s.client_id = c.id
        WHERE s.paid = 0 AND c.active = 1
        ORDER BY s.session_date DESC`
     )
-    .all() as SessionWithClient[]
+    .all() as SessionListItem[]
 }
-

@@ -1,4 +1,4 @@
-import { PRACTICE_TIME_ZONE } from './date'
+import { practiceTimeZone } from './date'
 
 export type DateRangePreset = 'this-month' | 'last-month' | 'this-quarter' | 'this-year' | 'last-year'
 
@@ -20,11 +20,15 @@ export const DATE_RANGE_PRESETS: { id: DateRangePreset; label: string }[] = [
  * `today`. `today` is a required-in-spirit parameter (defaulted to `new
  * Date()` for caller convenience) so tests can pin the reference instant —
  * this function never reads the clock itself, keeping it pure and
- * deterministic. Calendar math uses the practice's local time zone
- * (`PRACTICE_TIME_ZONE`), matching the rest of src/shared/date.ts.
+ * deterministic. Calendar math uses `timeZone` (the machine's zone by
+ * default, see `practiceTimeZone`), matching the rest of src/shared/date.ts.
  */
-export function presetDateRange(preset: DateRangePreset, today: Date = new Date()): DateRange {
-  const { year, month, day } = practiceDateParts(today)
+export function presetDateRange(
+  preset: DateRangePreset,
+  today: Date = new Date(),
+  timeZone: string = practiceTimeZone()
+): DateRange {
+  const { year, month, day } = practiceDateParts(today, timeZone)
   const todayIso = isoDate(year, month, day)
 
   switch (preset) {
@@ -43,9 +47,9 @@ export function presetDateRange(preset: DateRangePreset, today: Date = new Date(
   }
 }
 
-function practiceDateParts(date: Date): { year: number; month: number; day: number } {
+function practiceDateParts(date: Date, timeZone: string): { year: number; month: number; day: number } {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: PRACTICE_TIME_ZONE,
+    timeZone,
     year: 'numeric',
     month: 'numeric',
     day: 'numeric'

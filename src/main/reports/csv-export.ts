@@ -2,18 +2,9 @@ import { dialog, app } from 'electron'
 import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { csvEscape } from '../../shared/csv'
+import { cptBillingLabel } from '../../shared/cpt-codes'
 import * as sessionsRepo from '../db/repos/sessions'
 import { recordSessionOutput } from '../session-outputs'
-
-const CPT_LABELS: Record<string, string> = {
-  '90791': 'Psychiatric Diagnostic Evaluation',
-  '90832': 'Individual Psychotherapy (30 min)',
-  '90834': 'Individual Psychotherapy (45 min)',
-  '90837': 'Individual Psychotherapy (60 min)',
-  '90846': 'Family Therapy without Patient (50 min)',
-  '90847': 'Family Therapy with Patient (50 min)',
-  '90853': 'Group Psychotherapy'
-}
 
 interface CsvArgs {
   fromDate: string
@@ -48,7 +39,7 @@ export async function generateCsvExport(args: CsvArgs): Promise<string | null> {
     s.session_date,
     `${s.client_first_name} ${s.client_last_name}`,
     s.cpt_code,
-    CPT_LABELS[s.cpt_code] ?? s.cpt_code,
+    cptBillingLabel(s.cpt_code),
     s.icd10_codes ?? '',
     (s.fee_cents / 100).toFixed(2),
     s.paid === 1 ? 'Y' : 'N',
