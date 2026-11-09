@@ -8,8 +8,12 @@ directories:
 
 asar: true
 asarUnpack:
-  - "**/better_sqlite3.node"
+  - "**/better-sqlite3/prebuilds/*.node"
   - "**/pdfkit/**"
+
+# better-sqlite3 ships N-API prebuilds that work in any Electron, so nothing
+# needs compiling at package time.
+npmRebuild: false
 
 afterPack: ./scripts/combined-afterpack.cjs
 
@@ -20,6 +24,8 @@ files:
 
 mac:
   target: dmg
+  files:
+    - "!node_modules/better-sqlite3/prebuilds/{win32,linux,linuxmusl}-*.node"
   category: public.app-category.medical
   identity: "-"
   hardenedRuntime: true
@@ -28,6 +34,8 @@ mac:
   # plus hardenedRuntime is sufficient for local/unsigned testing only.
 
 win:
+  files:
+    - "!node_modules/better-sqlite3/prebuilds/{darwin,linux,linuxmusl,win32-arm64}*.node"
   target:
     - target: nsis
       arch: x64

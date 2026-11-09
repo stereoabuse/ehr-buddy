@@ -60,16 +60,14 @@ Use the backup tools under Settings. **Back up now** copies the database file. *
 
 ### Prereqs
 
-- Node.js 20+ and npm 9+
-- macOS: Xcode Command Line Tools (`xcode-select --install`)
-- Windows: Visual Studio Build Tools (for native module compilation)
+- Node.js 22.12+ and npm 10+
 
 ### Setup
 
 ```bash
 git clone <repo-url>
 cd ehr-buddy
-npm install   # postinstall rebuilds better-sqlite3 for Electron
+npm install   # postinstall downloads the Electron binary
 ```
 
 ### Common scripts
@@ -99,7 +97,7 @@ scripts/        # Dev/maintenance scripts
 
 | Layer     | Technology                       |
 |-----------|----------------------------------|
-| Shell     | Electron 30                      |
+| Shell     | Electron 45                      |
 | UI        | React 18 + React Router 6        |
 | Styling   | Tailwind CSS 3                   |
 | State     | TanStack Query 5                 |

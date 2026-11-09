@@ -17,12 +17,12 @@
     "dist:mac": "npm run build && electron-builder --mac --publish never",
     "dist:win": "npm run build && electron-builder --win --publish never",
     "icd10:refresh": "node scripts/fetch-icd10.mjs",
-    "postinstall": "electron-rebuild -f -w better-sqlite3 && node scripts/patch-electron-name.mjs"
+    "postinstall": "install-electron && node scripts/patch-electron-name.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.0",
     "archiver": "^5.3.2",
-    "better-sqlite3": "^11.1.2",
+    "better-sqlite3": "^13.0.3",
     "pdfkit": "^0.15.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -31,7 +31,6 @@
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",
-    "@electron/rebuild": "^4.0.2",
     "@eslint/js": "^9.39.5",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
@@ -42,7 +41,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
-    "electron": "^30.1.0",
+    "electron": "^45.2.3",
     "electron-builder": "^26.0.12",
     "electron-vite": "^2.3.0",
     "eslint": "^9.39.5",
