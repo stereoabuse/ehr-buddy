@@ -25,7 +25,7 @@ No cloud sync, authentication, payments, claims, or third-party services so EHR 
 
 ## For clinicians (installing and using the app)
 
-Download the latest installer from the **Releases** page in the sidebar.
+Download the latest installer from the **Releases** page in the sidebar. Requires Windows 10 or later, or macOS 13 (Ventura) or later on Apple Silicon.
 
 ### Windows
 
